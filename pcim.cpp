@@ -229,7 +229,7 @@ void pcim::build(const vector<vartrajrange> &data, const ss &s,
 }
 
 double pcim::getevent(const traj &tr, double &t, double expsamp, double unisamp,
-		double normsamp, int &var, double &val, double maxt) const {
+		double normsamp, int &eventtype, double &val, double maxt) const {
 	//cout << "-----" << endl;
 	//tr.print(cout); cout << endl;
 	//cout << t << " w/ " << expsamp << endl;
@@ -244,19 +244,19 @@ double pcim::getevent(const traj &tr, double &t, double expsamp, double unisamp,
 		r = getrate(tr,t,until,leaves);
 	}
 	//cout << r << " through " << t+expsamp/r << " [" << until << "]" << endl;
-	var = leaves.size()-1;
+	eventtype = leaves.size()-1;
 	for(int i=0;i<leaves.size();i++) {
 		unisamp -= leaves[i]->rate/r;
-		if (unisamp<=0) { var = i; break; } //var of sampled event!!
+		if (unisamp<=0) { eventtype = i; break; } //eventtype of sampled event!!
 	}
 #ifdef USEPERSIST
 	double x = 0.0;
-	if (!tr[var].empty()) x = tr[var].rbegin()->second.v;
-	val = predfeat(x).dot(leaves[var]->mu);
+	if (!tr[eventtype].empty()) x = tr[eventtype].rbegin()->second.v;
+	val = predfeat(x).dot(leaves[eventtype]->mu);
 #else
-	val = leaves[var]->mu;
+	val = leaves[eventtype]->mu;
 #endif
-	val += normsamp*leaves[var]->sigma;//value of sampled event!!
+	val += normsamp*leaves[eventtype]->sigma;//value of sampled event!!
 	return t+expsamp/r;//time of sampled event!!
 }
 
@@ -270,13 +270,13 @@ double pcim::getrate(const traj &tr, double t, double &until,
 	return r;
 }
 
-double pcim::getratevar(const traj &tr, int var, double t, double &until,
+double pcim::getratevar(const traj &tr, int eventtype, double t, double &until,
 			const pcim *&leaf) const {
 	if (!test) { leaf = this; return rate; }//reached leaf
 	double til;
-	bool dir = test->eval(tr,var,t,til);
+	bool dir = test->eval(tr,eventtype,t,til);
 	if (til<until) until = til;
-	return (dir ? ttree : ftree)->getratevar(tr,var,t,until,leaf);
+	return (dir ? ttree : ftree)->getratevar(tr,eventtype,t,until,leaf);
 }
 
 void pcim::print(ostream &os) const {

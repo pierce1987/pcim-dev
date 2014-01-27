@@ -184,7 +184,7 @@ public:
 		}
 	}
 		
-	virtual bool eval(const traj &tr, int var, double t) const {
+	virtual bool eval(const traj &tr, int eventtype, double t) const {
 		double temp;
 		double del = sadd<0 ? 0 : -tr.sx[sadd];
 		double myt0 = breakup(t0+del,temp);
@@ -196,7 +196,7 @@ public:
 		if (tmod<tmin || tmod>tmax) return myt0>myt1;
 		return myt1>myt0;
 	}
-	virtual bool eval(const traj &tr, int var, double t, double &until) const {
+	virtual bool eval(const traj &tr, int eventtype, double t, double &until) const {
 		double temp;
 		double del = sadd<0 ? 0 : -tr.sx[sadd];
 		double myt0 = breakup(t0+del,temp);
@@ -290,8 +290,8 @@ public:
 		}
 
 	}
-	virtual bool eval(const traj &tr, int var, double t) const {
-		const vartraj &vtr = tr[v==-1?var:v];
+	virtual bool eval(const traj &tr, int eventtype, double t) const {
+		const vartraj &vtr = tr[v==-1?eventtype:v];
 		double tnext
 			= std::nextafter(tnext,std::numeric_limits<double>::infinity());
 		double t0 = tnext-maxlag;
@@ -308,8 +308,8 @@ public:
 		return static_cast<const D *>(this)->evalstat(stat);
 	}
 
-	virtual bool eval(const traj &tr, int var, double t, double &until) const {
-		const vartraj &vtr = tr[v==-1?var:v];
+	virtual bool eval(const traj &tr, int eventtype, double t, double &until) const {
+		const vartraj &vtr = tr[v==-1?eventtype:v];
 		const auto &e = vtr.cend();
 		double tnext
 			= std::nextafter(t,std::numeric_limits<double>::infinity());
@@ -333,7 +333,7 @@ public:
 
 protected:
 	double minlag,maxlag;
-	int v;
+	int v; //eventtype
 private:
 	friend class boost::serialization::access;
 	template<typename Ar>
@@ -384,7 +384,7 @@ private:
 	}
 };
 
-// test if mean of values of var testvar (-1 == currvar)
+// test if mean of values of eventtype testvar (-1 == currvar)
 // from t-lag0 to t-lag1 is greater than thresh
 // if no value in interval, mean is taken to be 0.0
 class meantest : public varstattest<meantest> {
@@ -430,7 +430,7 @@ class vartest : public pcimtest {
 public:
 	vartest(int testvar=0) : pcimtest() { v = testvar; };
 	virtual ~vartest() {} ;
-	virtual void print(std::ostream &os) const { os << "var == " << v; }
+	virtual void print(std::ostream &os) const { os << "eventtype == " << v; }
 	virtual void print(std::ostream &os, const datainfo &info) const {
 		os << "X == " << info.dvarname(v);
 	}
@@ -440,15 +440,15 @@ public:
 		if (in.eventtype==v) outtrue.emplace_back(in);
 		else outfalse.emplace_back(in);
 	}
-	virtual bool eval(const traj &tr, int var, double t) const {
-		return var==v;
+	virtual bool eval(const traj &tr, int eventtype, double t) const {
+		return eventtype==v;
 	}
-	virtual bool eval(const traj &tr, int var, double t, double &until) const {
+	virtual bool eval(const traj &tr, int eventtype, double t, double &until) const {
 		until = std::numeric_limits<double>::infinity();
-		return var==v;
+		return eventtype==v;
 	}
 private:
-	int v;
+	int v; //eventtype
 private:
 	friend class boost::serialization::access;
 	template<typename Ar>
@@ -477,10 +477,10 @@ public:
 		if (in.tr->sx[v]>=theta) outtrue.emplace_back(in);
 		else outfalse.emplace_back(in);
 	}
-	virtual bool eval(const traj &tr, int var, double t) const {
+	virtual bool eval(const traj &tr, int eventtype, double t) const {
 		return tr.sx[v]>=theta;
 	}
-	virtual bool eval(const traj &tr, int var, double t, double &until) const {
+	virtual bool eval(const traj &tr, int eventtype, double t, double &until) const {
 		until = std::numeric_limits<double>::infinity();
 		return tr.sx[v]>=theta;
 	}
@@ -515,10 +515,10 @@ public:
 		if (in.tr->sx[v]==theta) outtrue.emplace_back(in);
 		else outfalse.emplace_back(in);
 	}
-	virtual bool eval(const traj &tr, int var, double t) const {
+	virtual bool eval(const traj &tr, int eventtype, double t) const {
 		return tr.sx[v]==theta;
 	}
-	virtual bool eval(const traj &tr, int var, double t, double &until) const {
+	virtual bool eval(const traj &tr, int eventtype, double t, double &until) const {
 		until = std::numeric_limits<double>::infinity();
 		return tr.sx[v]>=theta;//?
 	}
@@ -634,24 +634,24 @@ public:
 	template<typename R>
 	double samplecomplete(traj &ret, double T, R &rand) const {
 		double t=0.0;
-		int var;
+		int eventtype;
 		double val;
 		std::exponential_distribution<> expdist(1.0);
 		std::uniform_real_distribution<> unifdist(0.0,1.0);
 		std::normal_distribution<> normdist(0.0,1.0);
 		double lastt=t;
-		while((t = getevent(ret,lastt,expdist(rand),unifdist(rand),normdist(rand),var,val,T))<T) {
-			ret[var].insert(t,val);
+		while((t = getevent(ret,lastt,expdist(rand),unifdist(rand),normdist(rand),eventtype,val,T))<T) {
+			ret[eventtype].insert(t,val);
 			lastt = t;
 		}
 		return lastt;
 	}
 
 	template<typename R>
-	traj sample(double T,int nvar,R &rand) const {
-		traj ret(nvar);
+	traj sample(double T,int neventtype,R &rand) const {
+		traj ret(neventtype);
 		if (T<0.0) return ret;
-		for(int i=0;i<nvar;i++) {
+		for(int i=0;i<neventtype;i++) {
 			ret[i].starttime() = 0.0;
 			ret[i].endtime() = T;
 		}
@@ -773,7 +773,7 @@ public:
 	double getrate(const traj &tr, double t, double &until, std::vector<const pcim *> &ret) const;
 	// returns new time and sets var and val to the variable and its value
 	double getevent(const traj &tr, double &t, double expsamp, double unisamp, double normsamp,
-					int &var, double &val, double maxt) const;
+					int &eventtype, double &val, double maxt) const;
 
 	void print(std::ostream &os) const;
 	void print(std::ostream &os, const datainfo &info) const;
@@ -855,7 +855,7 @@ private:
 	static double score(const ss &d, const pcimparams &p);
 	void calcleaf(const ss &d, const pcimparams &p);
 
-	double getratevar(const traj &tr, int var, double t, double &until, const pcim *&leaf) const;
+	double getratevar(const traj &tr, int eventtype, double t, double &until, const pcim *&leaf) const;
 
 	void printhelp(std::ostream &os, int lvl, const datainfo *info=nullptr) const;
 	void todothelp(std::ostream &os, int par, bool istrue, int &nn, const datainfo &info) const;
