@@ -35,7 +35,7 @@ pcim::ss pcim::suffstats(const std::vector<vartrajrange> &data) {
 	ret.sum2 = 0.0;
 	for(const auto &x : data) {
 		ret.t += x.range.second-x.range.first;
-		const vartraj &vtr = (*(x.tr))[x.var];
+		const vartraj &vtr = (*(x.tr))[x.eventtype];
 		auto i0 = vtr.upper_bound(x.range.first);
 		auto i1 = vtr.upper_bound(x.range.second);
 #ifdef USEPERSIST
@@ -351,7 +351,7 @@ void pcim::getleaffeature(const vector<vartrajrange> &tr, array<double,nleaffeat
 	double N = 0.0, D = 0.0, E = 0.0, T = 0.0;
 	for(auto &x : tr) {
 		T += x.range.second-x.range.first;
-		const vartraj &vtr = (*(x.tr))[x.var];
+		const vartraj &vtr = (*(x.tr))[x.eventtype];
 		auto i0 = vtr.upper_bound(x.range.first);
 		auto i1 = vtr.upper_bound(x.range.second);
 		for(auto i = i0;i!=i1;++i) {
@@ -437,7 +437,6 @@ const pcim::wtvarT pcim::zerowtvar = pcim::wtvarT::Zero(pcim::npredfeat,pcim::np
 #endif
 
 BOOST_CLASS_EXPORT_IMPLEMENT(pcimtest)
-BOOST_CLASS_EXPORT_IMPLEMENT(lasttest)
 BOOST_CLASS_EXPORT_IMPLEMENT(timetest)
 BOOST_CLASS_EXPORT_IMPLEMENT(counttest)
 BOOST_CLASS_EXPORT_IMPLEMENT(varstattest<counttest>)

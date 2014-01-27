@@ -113,7 +113,7 @@ public:
 			push_back(x);
 	}
 	traj() = default;
-	traj(int nvar) : std::vector<vartraj>(nvar) {
+	traj(int nevent) : std::vector<vartraj>(nevent) {
 	}
 
 	traj(const traj &tr, double endt) : sx(tr.sx) {

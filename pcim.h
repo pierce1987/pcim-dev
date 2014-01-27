@@ -4,7 +4,6 @@
 #include "traj.h"
 #include <memory>
 #include <iostream>
-#include <utility>
 #include <cmath>
 #include <random>
 #include <string>
@@ -31,19 +30,19 @@ typedef std::pair<double,double> timerange;
 struct vartrajrange {
 	vartrajrange(const traj *traject, int v, double t0, double t1) : range(t0,t1), tr(traject) {
 		tr = traject;
-		var = v;
+		eventtype = v;
 	}
 	vartrajrange(const vartrajrange &vtr, double t0, double t1) : range(t0,t1) {
 		tr = vtr.tr;
-		var = vtr.var;
+		eventtype = vtr.eventtype;
 	}
 	vartrajrange(const traj *traject, int v)
 				: range((*traject)[v].starttime(),(*traject)[v].endtime()) {
 		tr = traject;
-		var = v;
+		eventtype = v;
 	}
 	const traj *tr;
-	int var;
+	int eventtype;
 	timerange range;
 };
 
@@ -56,10 +55,10 @@ public:
 	virtual void chop(const vartrajrange &in,
 			std::vector<vartrajrange> &outtrue,
 			std::vector<vartrajrange> &outfalse) const = 0;
-	virtual bool eval(const traj &tr, int var, double t) const {
-		double toss; return eval(tr,var,t,toss);
+	virtual bool eval(const traj &tr, int eventtype, double t) const {
+		double toss; return eval(tr,eventtype,t,toss);
 	}
-	virtual bool eval(const traj &tr, int var, double t, double &until) const = 0;
+	virtual bool eval(const traj &tr, int eventtype, double t, double &until) const = 0;
 private:
 	friend class boost::serialization::access;
 	template<typename Ar>
@@ -67,89 +66,6 @@ private:
 	}
 };
 
-// tests if last value of testvar >= thresh (if no last value, value taken
-//  to be 0)
-class lasttest : public pcimtest {
-public:
-	lasttest(int testvar=0, double thresh=0) {
-		v = testvar;
-		theta = thresh;
-	}
-	virtual ~lasttest() {}
-	virtual void print(std::ostream &os) const {
-		os << "most recent " << v << " >= " << theta;
-	}
-	virtual void print(std::ostream &os, const datainfo &info) const {
-		os << "most recent value for " << info.dvarname(v) << " >= " << theta;
-	}
-	virtual void chop(const vartrajrange &in,
-			std::vector<vartrajrange> &outtrue,
-			std::vector<vartrajrange> &outfalse) const {
-		const vartraj &tr = (*(in.tr))[v==-1?in.var:v];
-		const auto e = tr.cend();
-		double t0 = in.range.first;
-		double tend = in.range.second;
-		auto i0 = tr.upper_bound(t0);
-		if (i0!=tr.begin()) --i0;
-		auto i1 = tr.lower_bound(tend);
-		bool currval = (i0==e ? 0.0 : i0->second.v) >=theta;
-		double t1 = i0->first;
-		while(t1<tend && i0!=e) {
-			++i0;
-			while (i0!=e && i0->first<=t1) ++i0;
-			if (i0==e || i0->first>=tend) t1 = tend;
-			else t1 = i0->first;
-			bool newval = (i0==e ? 0.0 : i0->second.v) >= theta;
-			if (!newval && currval) {
-				outtrue.emplace_back(in,t0,t1);
-				t0 = t1;
-				currval = false;
-			} else if (newval && !currval) {
-				outfalse.emplace_back(in,t0,t1);
-				t0 = t1;
-				currval = true;
-			}
-		}
-		if (t0<tend) {
-			if (currval) outtrue.emplace_back(in,t0,tend);
-			else outfalse.emplace_back(in,t0,tend);
-		}
-	}
-	virtual bool eval(const traj &tr, int var, double t) const {
-		const vartraj &vtr = tr[v==-1?var:v];
-		if (vtr.empty()) return 0.0 >= theta;
-		auto i0 = vtr.lower_bound(t);
-		if (i0==vtr.cend() || i0->first>t) --i0;
-		return (i0==vtr.cend() ? 0.0 : i0->second.v) >= theta;
-	}
-
-	virtual bool eval(const traj &tr, int var, double t, double &until) const {
-		const vartraj &vtr = tr[v==-1?var:v];
-		if (vtr.empty()) {
-			until = std::numeric_limits<double>::infinity();
-			return 0.0 >= theta;
-		}
-		auto i0 = vtr.lower_bound(t);
-		auto e = vtr.cend();
-		auto i1 = i0;
-		if (i0==e || i0->first>t) --i0;
-		else ++i1;
-		until = i1!=e ? i1->first : std::numeric_limits<double>::infinity();
-		assert(until>t);
-		return (i0==e ? 0.0 : i0->second.v) >= theta;
-	}
-
-protected:
-	double theta;
-	int v;
-private:
-	friend class boost::serialization::access;
-	template<typename Ar>
-	void serialize(Ar &ar, const unsigned int ver) {
-		ar & BOOST_SERIALIZATION_BASE_OBJECT_NVP(pcimtest);
-		ar & BOOST_SERIALIZATION_NVP(v) & BOOST_SERIALIZATION_NVP(theta);
-	}
-};
 
 class timetest : public pcimtest {
 public:
@@ -331,7 +247,7 @@ public:
 	virtual void chop(const vartrajrange &in,
 			std::vector<vartrajrange> &outtrue,
 			std::vector<vartrajrange> &outfalse) const {
-		const vartraj &tr = (*(in.tr))[v==-1?in.var:v];
+		const vartraj &tr = (*(in.tr))[v==-1?in.eventtype:v];
 		const auto &e = tr.cend();
 		double t0 = in.range.first;
 		double tend = in.range.second;
@@ -521,7 +437,7 @@ public:
 	virtual void chop(const vartrajrange &in,
 			std::vector<vartrajrange> &outtrue,
 			std::vector<vartrajrange> &outfalse) const {
-		if (in.var==v) outtrue.emplace_back(in);
+		if (in.eventtype==v) outtrue.emplace_back(in);
 		else outfalse.emplace_back(in);
 	}
 	virtual bool eval(const traj &tr, int var, double t) const {
@@ -1044,7 +960,6 @@ namespace boost {
 	
 
 BOOST_CLASS_EXPORT_KEY(pcimtest)
-BOOST_CLASS_EXPORT_KEY(lasttest)
 BOOST_CLASS_EXPORT_KEY(timetest)
 BOOST_CLASS_EXPORT_KEY(counttest)
 BOOST_CLASS_EXPORT_KEY(varstattest<counttest>)

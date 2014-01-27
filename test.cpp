@@ -3,6 +3,7 @@
 #include <vector>
 #include <random>
 #include <sstream>
+#include <numeric>
 
 using namespace std;
 
@@ -32,14 +33,30 @@ int main(int argc, char **argv) {
 				new pcim(0.01,10.0,1.0));
 	truemodel.print(cout); cout << endl;
 	random_device rd;
+
 	int nvar = 3;
+	int states[] = {2,1,1};
+	vector<int> statenum (states, states + sizeof(states) /sizeof(int));
+	if(statenum.size() != nvar)
+		cout<<"error"<<endl;
+	int nevent = accumulate( statenum.begin(), statenum.end(), 0);
+
+	map<pair<int, int>, int> EventIndexMap;
+	int counter = 0;
+	for(int i=0; i<nvar; i++){
+		for(int j=0; j<statenum[i]; j++){
+			EventIndexMap.insert(map<pair<int, int>, int>::value_type(make_pair(i, j), counter));
+			counter++;
+		}
+	}
+
 	unsigned int seed = rd();
 	cout << "seed = " << seed << endl;
 	mt19937 randgen(seed);
 	vector<traj> data;
 
 	for(int i=0;i<nsamp;i++) {
-		traj tr = truemodel.sample(100.0,nvar,randgen);
+		traj tr = truemodel.sample(100.0,nevent,randgen);
 		//printtr(cout,tr);
 		data.push_back(tr);
 	}
@@ -48,7 +65,7 @@ int main(int argc, char **argv) {
 	cout << "done sampling" << endl;
 
 	vector<shptr<pcimtest>> tests;
-	for(int v=-1;v<nvar;v++) {
+	for(int v=-1;v<nevent;v++) {
 		tests.emplace_back(new vartest(v));
 		for(double t0=0.0;t0<=4.0;t0+=2.0)
 			for(double t1=0.0;t1<t0;t1+=2.0) {
