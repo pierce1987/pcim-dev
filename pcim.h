@@ -21,6 +21,16 @@
 #endif
 //g++ -std=c++0x test.cpp pcim.cpp -I../../../boost/boost_1_55_0/ ../../../boost/boost_1_55_0/stage/lib/libboost_serialization.a -lboost_serialization -static-libstdc++
 
+int getvarfromeventtype(int eventtype, map<pair<int, int>, int>& EventIndexMap)
+{
+	for(auto it : EventIndexMap){
+		if(it.second == eventtype)
+			return it.first.first;
+	}
+	cout<<"error"<<endl;
+
+}
+
 namespace boost { namespace serialization { 
 	class access;
 }}
@@ -425,11 +435,11 @@ private:
 	}
 };
 
-// test if current variable == testvar
-class vartest : public pcimtest {
+// test if current eventtype == testeventtype
+class eventtypetest : public pcimtest {
 public:
-	vartest(int testvar=0) : pcimtest() { v = testvar; };
-	virtual ~vartest() {} ;
+	eventtypetest(int testeventtype=0) : pcimtest() { v = testeventtype; };
+	virtual ~eventtypetest() {} ;
 	virtual void print(std::ostream &os) const { os << "eventtype == " << v; }
 	virtual void print(std::ostream &os, const datainfo &info) const {
 		os << "X == " << info.dvarname(v);
@@ -449,6 +459,40 @@ public:
 	}
 private:
 	int v; //eventtype
+private:
+	friend class boost::serialization::access;
+	template<typename Ar>
+	void serialize(Ar &ar, const unsigned int ver) {
+		ar & BOOST_SERIALIZATION_BASE_OBJECT_NVP(pcimtest);
+		ar & BOOST_SERIALIZATION_NVP(v);
+	}
+};
+
+// test if current var (inferred from eventtype) == testvar
+class vartest : public pcimtest {
+public:
+	vartest(int testvar=0, std::map<std::pair<int, int>, int> &EventIndexMap) : pcimtest() { v = testvar; eimap = &EventIndexMap};
+	virtual ~vartest() {} ;
+	virtual void print(std::ostream &os) const { os << "vartype == " << v; }
+	virtual void print(std::ostream &os, const datainfo &info) const {
+		os << "X == " << info.dvarname(v);
+	}
+	virtual void chop(const vartrajrange &in,
+			std::vector<vartrajrange> &outtrue,
+			std::vector<vartrajrange> &outfalse) const {
+		if (in.eventtype==v) outtrue.emplace_back(in);
+		else outfalse.emplace_back(in);
+	}
+	virtual bool eval(const traj &tr, int eventtype, double t) const {eimap
+		return eventtype==v;
+	}
+	virtual bool eval(const traj &tr, int eventtype, double t, double &until) const {
+		until = std::numeric_limits<double>::infinity();
+		return var==v;
+	}
+private:
+	int v; //vartype
+	std::map<std::pair<int, int>, int> *eimap;
 private:
 	friend class boost::serialization::access;
 	template<typename Ar>
@@ -965,7 +1009,7 @@ BOOST_CLASS_EXPORT_KEY(counttest)
 BOOST_CLASS_EXPORT_KEY(varstattest<counttest>)
 BOOST_CLASS_EXPORT_KEY(meantest)
 BOOST_CLASS_EXPORT_KEY(varstattest<meantest>)
-BOOST_CLASS_EXPORT_KEY(vartest)
+BOOST_CLASS_EXPORT_KEY(eventtypetest)
 BOOST_CLASS_EXPORT_KEY(staticgreqtest)
 BOOST_CLASS_EXPORT_KEY(staticeqtest)
 BOOST_CLASS_EXPORT_KEY(pcim)

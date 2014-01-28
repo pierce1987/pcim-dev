@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
 							new pcim(2.0,-2.0,0.1)),
 					new pcim(new meantest(-0.5,1,0.0,2.0),
 						new pcim(0.5,0.0,1.0),
-						new pcim(new vartest(1),
+						new pcim(new eventtypetest(1),
 							new pcim(3.0,0.0,5.0),
 							new pcim(1.0,0.0,5.0))));
 */
@@ -66,7 +66,7 @@ int main(int argc, char **argv) {
 
 	vector<shptr<pcimtest>> tests;
 	for(int v=-1;v<nevent;v++) {
-		tests.emplace_back(new vartest(v));
+		tests.emplace_back(new eventtypetest(v));
 		for(double t0=0.0;t0<=4.0;t0+=2.0)
 			for(double t1=0.0;t1<t0;t1+=2.0) {
 				for(int i=1;i<3;i++)
