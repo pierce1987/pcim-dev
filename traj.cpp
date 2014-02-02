@@ -4,7 +4,7 @@
 
 using namespace std;
 
-void printstatic(ostream &os, const traj &tr) {
+void printstatic(ostream &os, const Trajectory &tr) {
 	for(int i=0;i<tr.sx.size();i++)
 		os << "static " << i << ": " << tr.sx[i] << endl;
 }
@@ -27,7 +27,7 @@ void printtime(ostream &os, double t, int colw, bool ishrs) {
 	}
 }
 
-void printdynamic(ostream &os, const traj &tr, bool incolumns, bool ishrs) {
+void printdynamic(ostream &os, Trajectory &tr, bool incolumns, bool ishrs) {
 	vector<decltype(tr[0].begin())> it;
 	vector<int> varid;
 	int ndone = 0;
@@ -56,20 +56,20 @@ void printdynamic(ostream &os, const traj &tr, bool incolumns, bool ishrs) {
 		if (incolumns) {
 			printtime(os,t,colw,ishrs);
 			for(int j=0;j<i;j++) os << "|          ";
-			os << "|" << setw(colw) << it[i]->second.v;
+			os << "|" << setw(colw) << it[i]->second;
 			for(int j=i+1;j<varid.size();j++) os << "|          ";
 			os << endl;
 		} else {
 			os << setw(4) << i << " @ ";
 			printtime(os,t,colw,ishrs);
-			os << " " << setw(colw) << it[i]->second.v << endl;
+			os << " " << setw(colw) << it[i]->second << endl;
 		}
 		if (++it[i] == tr[varid[i]].end()) ndone++;
 	}
 	os.setf(osf);
 }
 
-void printtr(ostream &os, const traj &tr, bool incolumns, bool ishrs) {
+void printtr(ostream &os, Trajectory &tr, bool incolumns, bool ishrs) {
 	printstatic(os,tr);
 	printdynamic(os,tr,incolumns,ishrs);
 }

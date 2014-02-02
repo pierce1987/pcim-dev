@@ -7,19 +7,20 @@
 
 using namespace std;
 
-inline vector<vartrajrange> torange(const vector<traj> &data) {
+inline vector<vartrajrange> torange(vector<Trajectory> &data, const vector<int> states) {
 	vector<vartrajrange> ret;
 	if (data.empty()) return ret;
 	int nv = data[0].size();
-	for(auto &x : data) for(int v=0;v<nv;v++)
-		ret.emplace_back(&x,v);
+	for(auto &x : data) for(int v=0;v<nv;v++) for(int s=0;s<states[v];s++)
+		ret.emplace_back(&x,eventtype(v,s));//??timerange should be associated with state??
 	return ret;
 }
 
-pcim::pcim(const vector<traj> &data,
+pcim::pcim(vector<Trajectory> &data,
 		const vector<shptr<pcimtest>> &tests,
-		const pcimparams &params) {
-	const vector<vartrajrange> &d = torange(data);
+		const pcimparams &params,
+		const vector<int> &states) {
+	const vector<vartrajrange> &d = torange(data, states);
 	ss s = suffstats(d);
 	globalm = data.size();
 	build(d,s,tests,score(s,params),params);
@@ -34,26 +35,17 @@ pcim::ss pcim::suffstats(const std::vector<vartrajrange> &data) {
 	ret.invar = zerowtvar;
 	ret.sum2 = 0.0;
 	for(const auto &x : data) {
-		ret.t += x.range.second-x.range.first;
-		const vartraj &vtr = (*(x.tr))[x.var];
+		ret.t += x.range.second-x.range.first;//?????
+		const vartraj &vtr = (*(x.tr))[x.event.var];
 		auto i0 = vtr.upper_bound(x.range.first);
 		auto i1 = vtr.upper_bound(x.range.second);
-#ifdef USEPERSIST
-		double lasty = 0.0;
-		if (i0!=vtr.begin() && !vtr.empty()) lasty = std::prev(i0)->second.v;
-#endif
 		//ret.n += distance(i0,i1);
 		for(auto i = i0;i!=i1;++i) {
-			double y = i->second.v;
-#ifdef USEPERSIST
-			wtT x = predfeat(lasty);
-			ret.sum += x*y;
-			ret.invar += x*x.transpose();
-			lasty = y;
-#else
+			double y = i->second;//to be deleted
+
 			ret.sum += y;
 			ret.invar += 1.0;
-#endif
+
 			ret.sum2 += y*y;
 			ret.n++;
 		}
@@ -86,21 +78,13 @@ double pcim::score(const ss &d, const pcimparams &p) {
 		+ lgamma(va_n) - p.lgva
 // check if below should be reversed! (I think it's okay, but not sure)
 		+ p.valvb - va_n*log(vb_n)
-#ifdef USEPERSIST
-		+ p.lvk/2.0 - log(vk_n.determinant())/2.0
-#else
+
 		+ p.lvk/2.0 - log(vk_n)/2.0
-#endif
+
 		- hn*log2pi();
 }
 
 void pcim::calcxxinvsqrt(const ss &d) {
-#ifdef USEPERSIST
-	wtvarT ivtemp = d.invar;
-	for(int i=0;i<npredfeat;i++) ivtemp(i,i) += invarreg;
-	Eigen::SelfAdjointEigenSolver<wtvarT> es(ivtemp/(d.n+invarreg));
-	xxinvsqrt = es.operatorInverseSqrt();
-#endif
 }
 
 void pcim::calcleaf(const ss &d, const pcimparams &p) {
@@ -228,71 +212,72 @@ void pcim::build(const vector<vartrajrange> &data, const ss &s,
 	stats = s;
 }
 
-double pcim::getevent(const traj &tr, double &t, double expsamp, double unisamp,
-		double normsamp, int &var, double &val, double maxt) const {
+double pcim::getevent(Trajectory &tr, double &t, double expsamp, double unisamp,
+		double normsamp, int &var, int &state, double maxt, const vector<int> &states) const {
 	//cout << "-----" << endl;
 	//tr.print(cout); cout << endl;
 	//cout << t << " w/ " << expsamp << endl;
 	double until;
-	vector<const pcim *> leaves;
-	double r = getrate(tr,t,until,leaves);
+	map<eventtype, const pcim *,comparator> leaves;
+	double r = getrate(tr,t,until,leaves,states);
 	while(expsamp>(until-t)*r) {
 		expsamp -= (until-t)*r;
 		//cout << r << " until " << until << " (" << expsamp << ")" << endl;
 		if (until>maxt) return maxt;
 		t = until;
-		r = getrate(tr,t,until,leaves);
+		r = getrate(tr,t,until,leaves,states);
 	}
 	//cout << r << " through " << t+expsamp/r << " [" << until << "]" << endl;
 	var = leaves.size()-1;
-	for(int i=0;i<leaves.size();i++) {
-		unisamp -= leaves[i]->rate/r;
-		if (unisamp<=0) { var = i; break; } //var of sampled event!!
+	for(map<eventtype, const pcim *>::iterator it = leaves.begin();it!=leaves.end();it++) {
+		unisamp -= it->second->rate/r;
+		if (unisamp<=0) { var = it->first.var; state = it->first.state; break; } //var and state of sampled event!!
 	}
-#ifdef USEPERSIST
-	double x = 0.0;
-	if (!tr[var].empty()) x = tr[var].rbegin()->second.v;
-	val = predfeat(x).dot(leaves[var]->mu);
-#else
-	val = leaves[var]->mu;
-#endif
-	val += normsamp*leaves[var]->sigma;//value of sampled event!!
+
+	//val = leaves[var]->mu;
+
+	//val += normsamp*leaves[var]->sigma;//value of sampled event!!
 	return t+expsamp/r;//time of sampled event!!
 }
 
-double pcim::getrate(const traj &tr, double t, double &until,
-			vector<const pcim *> &ret) const {
+double pcim::getrate(Trajectory &tr, double t, double &until,
+			map<eventtype, const pcim *, comparator> &ret,const vector<int> &states) const {
 	until = numeric_limits<double>::infinity();
-	ret.resize(tr.size());
+	//int totalnum = 0;
+	//for(int i = 0; i<state.size(); i++) totalnum += states[i];
+	//ret.resize(totalnum);
 	double r = 0.0;
+	int counter = 0;
 	for(int i=0;i<tr.size();i++)
-		r += getratevar(tr,i,t,until,ret[i]);
+		for(int s=0; s<states[i]; s++){
+			r += getratevar(tr,i,s,t,until,ret[eventtype(i,s)]);
+		}
 	return r;
 }
 
-double pcim::getratevar(const traj &tr, int var, double t, double &until,
+double pcim::getratevar(Trajectory &tr, int var, int state, double t, double &until,
 			const pcim *&leaf) const {
 	if (!test) { leaf = this; return rate; }//reached leaf
 	double til;
-	bool dir = test->eval(tr,var,t,til);
+	bool dir = test->eval(tr,eventtype(var, state),t,til);
 	if (til<until) until = til;
-	return (dir ? ttree : ftree)->getratevar(tr,var,t,until,leaf);
+	return (dir ? ttree : ftree)->getratevar(tr,var,state,t,until,leaf);
 }
 
-void pcim::print(ostream &os) const {
-	printhelp(os,0);
-}
-void pcim::print(ostream &os, const datainfo &info) const {
-	printhelp(os,0,&info);
-}
+//void pcim::print(ostream &os) const {
+//	printhelp(os,0);
+//}
+//void pcim::print(ostream &os, const datainfo &info) const {
+//	printhelp(os,0,&info);
+//}
 
-void pcim::todot(ostream &os, const datainfo &info) const {
-	os << "digraph {" << endl;
-	int nn = 0;
-	todothelp(os,-1,false,nn,info);
-	os << "}" << endl;
-}
-
+//void pcim::todot(ostream &os, const datainfo &info) const {
+//	os << "digraph {" << endl;
+//	int nn = 0;
+//	todothelp(os,-1,false,nn,info);
+//	os << "}" << endl;
+//}
+/*
 void pcim::todothelp(ostream &os, int par, bool istrue, int &nn, const datainfo &info) const {
 	int mynode = nn++;
 	os << "\tNODE" << mynode << " [label=\"";
@@ -322,31 +307,14 @@ void pcim::printhelp(ostream &os, int lvl, const datainfo *info) const {
 		ftree->printhelp(os,lvl+1,info);
 	}
 }
-
+*/
 void pcim::getleaffeature(const vector<vartrajrange> &tr, array<double,nleaffeat> &f) const {
 	ss d = suffstats(tr);
-#ifdef USEPERSIST
-	f[0] = d.n - rate*d.t;
-	wtT dff = xxinvsqrt*(d.sum - d.invar*mu);
-	for(int i=0;i<npredfeat;i++)
-		f[i+1] = dff(i)/sigma;
-	f[npredfeat+1] = (d.sum2 - 2*mu.dot(d.sum) + mu.transpose()*d.invar*mu)
-					/ (sigma*sigma) - d.n;
-	bool problem = false;
-	for(auto &x : f) if (std::isnan(x)) problem=true;
-	if (problem) {
-		cout << "problem:" << endl;
-		for(auto &x : f) cout << x << ' ';
-		cout << endl;
-		cout << d.n << ' ' << d.t << ' ' << d.sum2 << ' ' << d.sum << ' ' << d.invar << endl;
-		cout << rate << ' ' << sigma << ' ' << mu << endl;
-		exit(1);
-	}
-#else    //leaf features
+//leaf features
 	f[0] = d.n - rate*d.t;
 	f[1] = (d.sum - mu*d.n)/sigma;
 	f[2] = (d.sum2 - 2*mu*d.sum + mu*mu*d.n)/(sigma*sigma) - d.n;
-#endif
+
 /*
 	double N = 0.0, D = 0.0, E = 0.0, T = 0.0;
 	for(auto &x : tr) {
@@ -377,16 +345,9 @@ void pcim::featurenames(vector<string> &ret, string prefix) const {
 }
 
 array<string,pcim::nleaffeat> pcim::getleaffeaturenames() const {
-#ifdef USEPERSIST
-	array<string,nleaffeat> ret;
-	ret[0] = "rate";
-	for(int i=0;i<npredfeat;i++)
-		ret[i+1] = string("mean")+to_string(i);
-	ret[npredfeat+1] = "var";
-	return ret;
-#else
+
 	return {"rate","mean","var"};
-#endif
+
 }
 
 
@@ -431,18 +392,16 @@ double pcim::similarity(const vector<vartrajrange> &tr1,
 	}
 }
 
-#ifdef USEPERSIST
-const pcim::wtT pcim::zerowt = pcim::wtT::Zero(pcim::npredfeat,1);
-const pcim::wtvarT pcim::zerowtvar = pcim::wtvarT::Zero(pcim::npredfeat,pcim::npredfeat);
-#endif
 
 BOOST_CLASS_EXPORT_IMPLEMENT(pcimtest)
 BOOST_CLASS_EXPORT_IMPLEMENT(lasttest)
 BOOST_CLASS_EXPORT_IMPLEMENT(timetest)
 BOOST_CLASS_EXPORT_IMPLEMENT(counttest)
 BOOST_CLASS_EXPORT_IMPLEMENT(varstattest<counttest>)
-BOOST_CLASS_EXPORT_IMPLEMENT(meantest)
-BOOST_CLASS_EXPORT_IMPLEMENT(varstattest<meantest>)
+//BOOST_CLASS_EXPORT_IMPLEMENT(meantest)
+//BOOST_CLASS_EXPORT_IMPLEMENT(varstattest<meantest>)
+BOOST_CLASS_EXPORT_IMPLEMENT(countstatetest)
+BOOST_CLASS_EXPORT_IMPLEMENT(varstattest<countstatetest>)
 BOOST_CLASS_EXPORT_IMPLEMENT(vartest)
 BOOST_CLASS_EXPORT_IMPLEMENT(staticgreqtest)
 BOOST_CLASS_EXPORT_IMPLEMENT(staticeqtest)

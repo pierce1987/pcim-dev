@@ -9,20 +9,16 @@
 
 class vartraj {
 public:
-	struct rec {
-		rec(double val) { v = val; }
-		double v;
-		operator double() const { return v; }
-	};
-	typedef std::map<double,rec> trajT;
+
+	typedef std::map<double,int> trajT;
 	//typedef trajT::iterator iterator;
 	typedef trajT::const_iterator const_iterator;
 
 	vartraj() = default;
 
-	vartraj(std::initializer_list<std::pair<double,double>> data) {
+	vartraj(std::initializer_list<std::pair<double,int>> data) {
 		for(auto &x : data)
-			traj.insert(std::make_pair(x.first,rec(x.second)));
+			traj.insert(std::make_pair(x.first,x.second));
 	}
 	trajT::iterator begin() { return traj.begin(); }
 	trajT::const_iterator begin() const { return traj.cbegin(); }
@@ -79,8 +75,8 @@ public:
 		return *this;
 	}
 
-	void insert(double t, double v) {
-		traj.insert(std::make_pair(t,rec(v)));
+	void insert(double t, int v) {
+		traj.insert(std::make_pair(t,v));
 		if (tstart>t) tstart = t;
 		if (tend<t) tend = t;
 	}
@@ -105,24 +101,27 @@ private:
 };
 
 
-class traj : public std::vector<vartraj> {
+class Trajectory : public std::map<int, vartraj> {
 public:
 	// only initializes non-static vars
-	traj(std::initializer_list<vartraj> data) {
-		for(auto &x : data)
-			push_back(x);
+	int counter = 0;
+	Trajectory(std::initializer_list<vartraj> data) {
+		for(auto &x : data){
+			insert(std::pair<int, vartraj>(counter,x));
+			counter++;
+		}
 	}
-	traj() = default;
-	traj(int nvar) : std::vector<vartraj>(nvar) {
-	}
+	Trajectory() = default;
+	//Trajectory(int nvar) : std::vector<vartraj>(nvar) {
+	//}
 
-	traj(const traj &tr, double endt) : sx(tr.sx) {
-		for(auto &vtr : tr) emplace_back(vtr,endt);
+	Trajectory(Trajectory &tr, double endt) : sx(tr.sx) {
+		for(auto &vtr : tr) emplace(std::make_pair(vtr.first,vartraj(vtr.second,endt)));//??
 	}
 	
 	std::vector<double> sx; // static attributes
 };
 
-void printtr(std::ostream &os, const traj &tr, bool incolumns=true, bool ishrs=false);
+void printtr(std::ostream &os, const Trajectory &tr, bool incolumns=true, bool ishrs=false);
 
 #endif
