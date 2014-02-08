@@ -261,20 +261,20 @@ double pcim::getratevar(const Trajectory &tr, int var, int state, double t, doub
 	return (dir ? ttree : ftree)->getratevar(tr,var,state,t,until,leaf);
 }
 
-//void pcim::print(ostream &os) const {
-//	printhelp(os,0);
-//}
-//void pcim::print(ostream &os, const datainfo &info) const {
-//	printhelp(os,0,&info);
-//}
+void pcim::print(ostream &os) const {
+	printhelp(os,0);
+}
+void pcim::print(ostream &os, const datainfo &info) const {
+	printhelp(os,0,&info);
+}
 
-//void pcim::todot(ostream &os, const datainfo &info) const {
-//	os << "digraph {" << endl;
-//	int nn = 0;
-//	todothelp(os,-1,false,nn,info);
-//	os << "}" << endl;
-//}
-/*
+void pcim::todot(ostream &os, const datainfo &info) const {
+	os << "digraph {" << endl;
+	int nn = 0;
+	todothelp(os,-1,false,nn,info);
+	os << "}" << endl;
+}
+
 void pcim::todothelp(ostream &os, int par, bool istrue, int &nn, const datainfo &info) const {
 	int mynode = nn++;
 	os << "\tNODE" << mynode << " [label=\"";
@@ -304,7 +304,7 @@ void pcim::printhelp(ostream &os, int lvl, const datainfo *info) const {
 		ftree->printhelp(os,lvl+1,info);
 	}
 }
-*/
+
 void pcim::getleaffeature(const vector<vartrajrange> &tr, array<double,nleaffeat> &f) const {
 	ss d = suffstats(tr);
 //leaf features

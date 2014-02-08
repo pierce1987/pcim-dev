@@ -30,10 +30,10 @@ int main(int argc, char **argv) {
 	pcim truemodel(new timetest(2,4,10),
 				new pcim(20.0,0.0,1.0),
 				new pcim(0.01,10.0,1.0));
-	//truemodel.print(cout); cout << endl;
+	truemodel.print(cout); cout << endl;
 	random_device rd;
 	int nvar = 3;
-	int myints[] = {2,2,2};
+	int myints[] = {1,1,1};
 	vector<int> states (myints, myints + sizeof(myints)/sizeof(int));
 	unsigned int seed = rd();
 	cout << "seed = " << seed << endl;
@@ -71,6 +71,6 @@ int main(int argc, char **argv) {
 	pcim::pcimparams p(1,1,1.0/tests.size(),0.0,1.0,2.0,2.0,0,NPROC);
 
 	pcim model(data,tests,p,states);
-	//model.print(cout);
+	model.print(cout);
 	cout << endl;
 }

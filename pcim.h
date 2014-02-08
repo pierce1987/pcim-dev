@@ -9,7 +9,7 @@
 #include <random>
 #include <string>
 #include "serial.h"
-//#include "load.h"
+#include "load.h"
 #include <vector>
 #include <array>
 #include <future>
@@ -70,7 +70,7 @@ class pcimtest {
 public:
 	virtual ~pcimtest() {} ;
 	virtual void print(std::ostream &os) const = 0;
-	//virtual void print(std::ostream &os, const datainfo &info) const = 0;
+	virtual void print(std::ostream &os, const datainfo &info) const = 0;
 	// adds to (does not replace) outtrue and outfalse
 	virtual void chop(const vartrajrange &in,
 			std::vector<vartrajrange> &outtrue,
@@ -183,9 +183,9 @@ public:
 	virtual void print(std::ostream &os) const {
 		os << "most recent " << v << " == " << state;
 	}
-	//virtual void print(std::ostream &os, const datainfo &info) const {
-	//	os << "most recent state for " << info.dvarname(v) << " == " << state;
-	//}
+	virtual void print(std::ostream &os, const datainfo &info) const {
+		os << "most recent state for " << info.dvarname(v) << " == " << state;
+	}
 	virtual void chop(vartrajrange &in,
 			std::vector<vartrajrange> &outtrue,
 			std::vector<vartrajrange> &outfalse) const {
@@ -266,9 +266,9 @@ public:
 	virtual void print(std::ostream &os) const {
 		os << "time (%" << m << ") in (" << t0 << ',' << t1 << ')';
 	}
-	//virtual void print(std::ostream &os, const datainfo &info) const {
-	//	os << "time (%" << m << ") in (" << t0 << ',' << t1 << ')';
-	//}
+	virtual void print(std::ostream &os, const datainfo &info) const {
+		os << "time (%" << m << ") in (" << t0 << ',' << t1 << ')';
+	}
 	
 	inline double remerge(double base, double inc) const {
 		return base+inc;
@@ -432,7 +432,7 @@ public:
 	}
 	virtual ~varstattest() {}
 	virtual void print(std::ostream &os) const = 0;
-	//virtual void print(std::ostream &os, const datainfo &info) const =0;
+	virtual void print(std::ostream &os, const datainfo &info) const =0;
 	virtual void chop(const vartrajrange &in,
 			std::vector<vartrajrange> &outtrue,
 			std::vector<vartrajrange> &outfalse) const {
@@ -545,10 +545,10 @@ public:
 		os << "# " << v << " in [" << maxlag << ',' << minlag << ") >= "
 				<< theta;
 	}
-	//virtual void print(std::ostream &os, const datainfo &info) const {
-	//	os << "# " << info.dvarname(v) << " measurements in [" 
-	//		<< maxlag << ',' << minlag << ") >= " << theta;
-	//}
+	virtual void print(std::ostream &os, const datainfo &info) const {
+		os << "# " << info.dvarname(v) << " measurements in [" 
+			<< maxlag << ',' << minlag << ") >= " << theta;
+	}
 
 	struct statT {
 		statT() { n=0; }
@@ -586,7 +586,7 @@ public:
 	}
 	virtual ~eventstattest() {}
 	virtual void print(std::ostream &os) const = 0;
-	//virtual void print(std::ostream &os, const datainfo &info) const =0;
+	virtual void print(std::ostream &os, const datainfo &info) const =0;
 	virtual void chop(const vartrajrange &in,
 			std::vector<vartrajrange> &outtrue,
 			std::vector<vartrajrange> &outfalse) const {
@@ -700,10 +700,10 @@ public:
 		os << "# " << v << " in [" << maxlag << ',' << minlag << ") >= "
 				<< theta;
 	}
-	//virtual void print(std::ostream &os, const datainfo &info) const {
-	//	os << "# " << info.dvarname(v) << " measurements in [" 
-	//		<< maxlag << ',' << minlag << ") >= " << theta;
-	//}
+	virtual void print(std::ostream &os, const datainfo &info) const {
+		os << "# " << info.dvarname(v) << " measurements in [" 
+			<< maxlag << ',' << minlag << ") >= " << theta;
+	}
 
 	struct statE {
 		statE() { n=0; }
@@ -734,9 +734,9 @@ public:
 	vartest(int testvar=0) : pcimtest() { v = testvar; };
 	virtual ~vartest() {} ;
 	virtual void print(std::ostream &os) const { os << "var == " << v; }
-	//virtual void print(std::ostream &os, const datainfo &info) const {
-	//	os << "X == " << info.dvarname(v);
-	//}
+	virtual void print(std::ostream &os, const datainfo &info) const {
+		os << "X == " << info.dvarname(v);
+	}
 	virtual void chop(const vartrajrange &in,
 			std::vector<vartrajrange> &outtrue,
 			std::vector<vartrajrange> &outfalse) const {
@@ -773,9 +773,9 @@ public:
 	virtual void print(std::ostream &os) const {
 		os << "svar(" << v << ") >= " << theta;
 	}
-	//virtual void print(std::ostream &os, const datainfo &info) const {
-	//	os << info.svarnames[v] << " >= " << theta;
-	//}
+	virtual void print(std::ostream &os, const datainfo &info) const {
+		os << info.svarnames[v] << " >= " << theta;
+	}
 	virtual void chop(const vartrajrange &in,
 			std::vector<vartrajrange> &outtrue,
 			std::vector<vartrajrange> &outfalse) const {
@@ -811,9 +811,9 @@ public:
 	virtual void print(std::ostream &os) const {
 		os << "svar(" << v << ") == " << theta;
 	}
-	//virtual void print(std::ostream &os, const datainfo &info) const {
-	//	os << info.svarnames[v] << " == " << theta;
-	//}
+	virtual void print(std::ostream &os, const datainfo &info) const {
+		os << info.svarnames[v] << " == " << theta;
+	}
 	virtual void chop(const vartrajrange &in,
 			std::vector<vartrajrange> &outtrue,
 			std::vector<vartrajrange> &outfalse) const {
@@ -1053,8 +1053,8 @@ public:
 					int &var, int &state, double maxt, const std::vector<int> &states) const;
 
 	void print(std::ostream &os) const;
-	//void print(std::ostream &os, const datainfo &info) const;
-	//void todot(std::ostream &os, const datainfo &info) const;
+	void print(std::ostream &os, const datainfo &info) const;
+	void todot(std::ostream &os, const datainfo &info) const;
 
 	void save(std::ostream &os) const;
 	void load(std::ostream &os);
@@ -1121,8 +1121,8 @@ private:
 
 	double getratevar(const Trajectory &tr, int var, int state, double t, double &until, const pcim *&leaf) const;
 
-	//void printhelp(std::ostream &os, int lvl, const datainfo *info=nullptr) const;
-	//void todothelp(std::ostream &os, int par, bool istrue, int &nn, const datainfo &info) const;
+	void printhelp(std::ostream &os, int lvl, const datainfo *info=nullptr) const;
+	void todothelp(std::ostream &os, int par, bool istrue, int &nn, const datainfo &info) const;
 
 	struct testpick {
 		int testnum;
