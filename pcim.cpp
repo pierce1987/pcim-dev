@@ -7,16 +7,16 @@
 
 using namespace std;
 
-inline vector<vartrajrange> torange(vector<Trajectory> &data, const vector<int> states) {
+inline vector<vartrajrange> torange(const vector<Trajectory> &data, const vector<int> states) {
 	vector<vartrajrange> ret;
 	if (data.empty()) return ret;
 	int nv = data[0].size();
 	for(auto &x : data) for(int v=0;v<nv;v++) for(int s=0;s<states[v];s++)
-		ret.emplace_back(&x,eventtype(v,s));//??timerange should be associated with state??
+		ret.emplace_back(&x,eventtype(v,s));
 	return ret;
 }
 
-pcim::pcim(vector<Trajectory> &data,
+pcim::pcim(const vector<Trajectory> &data,
 		const vector<shptr<pcimtest>> &tests,
 		const pcimparams &params,
 		const vector<int> &states) {
@@ -35,8 +35,8 @@ pcim::ss pcim::suffstats(const std::vector<vartrajrange> &data) {
 	ret.invar = zerowtvar;
 	ret.sum2 = 0.0;
 	for(const auto &x : data) {
-		ret.t += x.range.second-x.range.first;//?????
-		const vartraj &vtr = (*(x.tr))[x.event.var];
+		ret.t += x.range.second-x.range.first;
+		const vartraj &vtr = (*(x.tr)).find(x.event.var)->second;
 		auto i0 = vtr.upper_bound(x.range.first);
 		auto i1 = vtr.upper_bound(x.range.second);
 		//ret.n += distance(i0,i1);
@@ -47,7 +47,8 @@ pcim::ss pcim::suffstats(const std::vector<vartrajrange> &data) {
 			ret.invar += 1.0;
 
 			ret.sum2 += y*y;
-			ret.n++;
+			if(i->second == x.event.state)
+				ret.n++;
 		}
 	}
 	//ret.sum2 = ret.var/ret.n - ret.sum*ret.sum/ret.n/ret.n; // maybe not numerically
@@ -212,13 +213,13 @@ void pcim::build(const vector<vartrajrange> &data, const ss &s,
 	stats = s;
 }
 
-double pcim::getevent(Trajectory &tr, double &t, double expsamp, double unisamp,
+double pcim::getevent(const Trajectory &tr, double &t, double expsamp, double unisamp,
 		double normsamp, int &var, int &state, double maxt, const vector<int> &states) const {
 	//cout << "-----" << endl;
 	//tr.print(cout); cout << endl;
 	//cout << t << " w/ " << expsamp << endl;
 	double until;
-	map<eventtype, const pcim *,comparator> leaves;
+	map<eventtype, const pcim *, comparator> leaves;
 	double r = getrate(tr,t,until,leaves,states);
 	while(expsamp>(until-t)*r) {
 		expsamp -= (until-t)*r;
@@ -228,7 +229,7 @@ double pcim::getevent(Trajectory &tr, double &t, double expsamp, double unisamp,
 		r = getrate(tr,t,until,leaves,states);
 	}
 	//cout << r << " through " << t+expsamp/r << " [" << until << "]" << endl;
-	var = leaves.size()-1;
+	var = leaves.size()-1;//?
 	for(map<eventtype, const pcim *>::iterator it = leaves.begin();it!=leaves.end();it++) {
 		unisamp -= it->second->rate/r;
 		if (unisamp<=0) { var = it->first.var; state = it->first.state; break; } //var and state of sampled event!!
@@ -240,14 +241,10 @@ double pcim::getevent(Trajectory &tr, double &t, double expsamp, double unisamp,
 	return t+expsamp/r;//time of sampled event!!
 }
 
-double pcim::getrate(Trajectory &tr, double t, double &until,
-			map<eventtype, const pcim *, comparator> &ret,const vector<int> &states) const {
+double pcim::getrate(const Trajectory &tr, double t, double &until,
+			map<eventtype, const pcim *, comparator> &ret, const vector<int> &states) const {
 	until = numeric_limits<double>::infinity();
-	//int totalnum = 0;
-	//for(int i = 0; i<state.size(); i++) totalnum += states[i];
-	//ret.resize(totalnum);
 	double r = 0.0;
-	int counter = 0;
 	for(int i=0;i<tr.size();i++)
 		for(int s=0; s<states[i]; s++){
 			r += getratevar(tr,i,s,t,until,ret[eventtype(i,s)]);
@@ -255,7 +252,7 @@ double pcim::getrate(Trajectory &tr, double t, double &until,
 	return r;
 }
 
-double pcim::getratevar(Trajectory &tr, int var, int state, double t, double &until,
+double pcim::getratevar(const Trajectory &tr, int var, int state, double t, double &until,
 			const pcim *&leaf) const {
 	if (!test) { leaf = this; return rate; }//reached leaf
 	double til;
@@ -400,8 +397,8 @@ BOOST_CLASS_EXPORT_IMPLEMENT(counttest)
 BOOST_CLASS_EXPORT_IMPLEMENT(varstattest<counttest>)
 //BOOST_CLASS_EXPORT_IMPLEMENT(meantest)
 //BOOST_CLASS_EXPORT_IMPLEMENT(varstattest<meantest>)
-BOOST_CLASS_EXPORT_IMPLEMENT(countstatetest)
-BOOST_CLASS_EXPORT_IMPLEMENT(varstattest<countstatetest>)
+BOOST_CLASS_EXPORT_IMPLEMENT(counteventtest)
+BOOST_CLASS_EXPORT_IMPLEMENT(eventstattest<counteventtest>)
 BOOST_CLASS_EXPORT_IMPLEMENT(vartest)
 BOOST_CLASS_EXPORT_IMPLEMENT(staticgreqtest)
 BOOST_CLASS_EXPORT_IMPLEMENT(staticeqtest)

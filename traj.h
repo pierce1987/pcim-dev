@@ -115,7 +115,7 @@ public:
 	//Trajectory(int nvar) : std::vector<vartraj>(nvar) {
 	//}
 
-	Trajectory(Trajectory &tr, double endt) : sx(tr.sx) {
+	Trajectory(const Trajectory &tr, double endt) : sx(tr.sx) {
 		for(auto &vtr : tr) emplace(std::make_pair(vtr.first,vartraj(vtr.second,endt)));//??
 	}
 	

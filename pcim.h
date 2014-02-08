@@ -26,7 +26,7 @@ namespace boost { namespace serialization {
 typedef std::pair<double,double> timerange;
 
 struct eventtype{
-	eventtype(int v = 0, int s = -1) { var = v; state = s;}
+	eventtype(int v = 0, int s = 0) { var = v; state = s;}
 	int var;
 	int state;
 };
@@ -38,7 +38,7 @@ struct comparator{
 };
 
 struct vartrajrange {
-	vartrajrange(Trajectory *traject, eventtype e, double t0, double t1) : range(t0,t1), tr(traject) {
+	vartrajrange(const Trajectory *traject, eventtype e, double t0, double t1) : range(t0,t1), tr(traject) {
 		event.var = e.var;
 		event.state = e.state;
 	}
@@ -47,18 +47,21 @@ struct vartrajrange {
 		event.var = vtr.event.var;
 		event.state = vtr.event.state;
 	}
-	vartrajrange(Trajectory *traject, int v)
-				: range((*traject)[v].starttime(),(*traject)[v].endtime()) {
+	vartrajrange(const Trajectory *traject, int v){
 		tr = traject;
 		event.var = v;
+		range.first = (*traject).find(v)->second.starttime(),
+		range.second = (*traject).find(v)->second.endtime();
+		
 	}
-	vartrajrange(Trajectory *traject, eventtype e)
-				: range((*traject)[e.var].starttime(),(*traject)[e.var].endtime()) {
+	vartrajrange(const Trajectory *traject, eventtype e){
 		tr = traject;
 		event.var = e.var;
 		event.state = e.state;
+		range.first = (*traject).find(e.var)->second.starttime(),
+		range.second = (*traject).find(e.var)->second.endtime();
 	}
-	Trajectory *tr;
+	const Trajectory *tr;
 	eventtype event;
 	timerange range;
 };
@@ -72,10 +75,10 @@ public:
 	virtual void chop(const vartrajrange &in,
 			std::vector<vartrajrange> &outtrue,
 			std::vector<vartrajrange> &outfalse) const = 0;
-	virtual bool eval(Trajectory &tr, eventtype event, double t) const {
+	virtual bool eval(const Trajectory &tr, eventtype event, double t) const {
 		double toss; return eval(tr,event,t,toss);
 	}
-	virtual bool eval(Trajectory &tr, eventtype event, double t, double &until) const = 0;
+	virtual bool eval(const Trajectory &tr, eventtype event, double t, double &until) const = 0;
 private:
 	friend class boost::serialization::access;
 	template<typename Ar>
@@ -186,7 +189,7 @@ public:
 	virtual void chop(vartrajrange &in,
 			std::vector<vartrajrange> &outtrue,
 			std::vector<vartrajrange> &outfalse) const {
-		const vartraj &tr = (*(in.tr))[v==-1?in.event.var:v];
+		const vartraj &tr = (*(in.tr)).find(v==-1?in.event.var:v)->second;
 		const auto e = tr.cend();
 		double t0 = in.range.first;
 		double tend = in.range.second;
@@ -216,16 +219,16 @@ public:
 			else outfalse.emplace_back(in,t0,tend);
 		}
 	}
-	virtual bool eval(Trajectory &tr, eventtype event, double t) const {
-		const vartraj &vtr = tr[v==-1?event.var:v];
+	virtual bool eval(const Trajectory &tr, eventtype event, double t) const {
+		const vartraj &vtr = tr.find(v==-1?event.var:v)->second;
 		if (vtr.empty()) return 0 == state;
 		auto i0 = vtr.lower_bound(t);
 		if (i0==vtr.cend() || i0->first>t) --i0;
 		return (i0==vtr.cend() ? 0 : i0->second) == state;
 	}
 
-	virtual bool eval(Trajectory &tr, eventtype event, double t, double &until) const {
-		const vartraj &vtr = tr[v==-1?event.var:v];
+	virtual bool eval(const Trajectory &tr, eventtype event, double t, double &until) const {
+		const vartraj &vtr = tr.find(v==-1?event.var:v)->second;
 		if (vtr.empty()) {
 			until = std::numeric_limits<double>::infinity();
 			return 0 == state;
@@ -369,7 +372,7 @@ public:
 		}
 	}
 		
-	virtual bool eval(Trajectory &tr, eventtype event, double t) const {
+	virtual bool eval(const Trajectory &tr, eventtype event, double t) const {
 		double temp;
 		double del = sadd<0 ? 0 : -tr.sx[sadd];
 		double myt0 = breakup(t0+del,temp);
@@ -381,7 +384,7 @@ public:
 		if (tmod<tmin || tmod>tmax) return myt0>myt1;
 		return myt1>myt0;
 	}
-	virtual bool eval(Trajectory &tr, eventtype event, double t, double &until) const {
+	virtual bool eval(const Trajectory &tr, eventtype event, double t, double &until) const {
 		double temp;
 		double del = sadd<0 ? 0 : -tr.sx[sadd];
 		double myt0 = breakup(t0+del,temp);
@@ -433,7 +436,7 @@ public:
 	virtual void chop(const vartrajrange &in,
 			std::vector<vartrajrange> &outtrue,
 			std::vector<vartrajrange> &outfalse) const {
-		const vartraj &tr = (*(in.tr))[v==-1?in.event.var:v];
+		const vartraj &tr = (*(in.tr)).find(v==-1?in.event.var:v)->second;
 		const auto &e = tr.cend();
 		double t0 = in.range.first;
 		double tend = in.range.second;
@@ -476,8 +479,8 @@ public:
 		}
 
 	}
-	virtual bool eval(Trajectory &tr, eventtype event, double t) const {
-		const vartraj &vtr = tr[v==-1?event.var:v];
+	virtual bool eval(const Trajectory &tr, eventtype event, double t) const {
+		const vartraj &vtr = tr.find(v==-1?event.var:v)->second;
 		double tnext
 			= std::nextafter(tnext,std::numeric_limits<double>::infinity());
 		double t0 = tnext-maxlag;
@@ -494,8 +497,8 @@ public:
 		return static_cast<const D *>(this)->evalstat(stat);
 	}
 
-	virtual bool eval(Trajectory &tr, eventtype event, double t, double &until) const {
-		const vartraj &vtr = tr[v==-1?event.var:v];
+	virtual bool eval(const Trajectory &tr, eventtype event, double t, double &until) const {
+		const vartraj &vtr = tr.find(v==-1?event.var:v)->second;
 		const auto &e = vtr.cend();
 		double tnext
 			= std::nextafter(t,std::numeric_limits<double>::infinity());
@@ -526,7 +529,7 @@ private:
 	template<typename Ar>
 	void serialize(Ar &ar, const unsigned int ver) {
 		ar & BOOST_SERIALIZATION_BASE_OBJECT_NVP(pcimtest);
-		ar & BOOST_SERIALIZATION_NVP(minlag) & BOOST_SERIALIZATION_NVP(maxlag) & BOOST_SERIALIZATION_NVP(v);
+		ar & BOOST_SERIALIZATION_NVP(minlag) & BOOST_SERIALIZATION_NVP(maxlag) & BOOST_SERIALIZATION_NVP(v)& BOOST_SERIALIZATION_NVP(s);
 	}
 };
 	
@@ -571,13 +574,128 @@ private:
 	}
 };
 
+//new, associate to eventtype
+template<typename D>
+class eventstattest : public pcimtest {
+public:
+	eventstattest(int testvar=0,int teststate=0, double lag0=0, double lag1=1) {
+		v = testvar;
+		s = teststate;
+		maxlag = std::max(lag0,lag1);
+		minlag = std::min(lag0,lag1);
+	}
+	virtual ~eventstattest() {}
+	virtual void print(std::ostream &os) const = 0;
+	//virtual void print(std::ostream &os, const datainfo &info) const =0;
+	virtual void chop(const vartrajrange &in,
+			std::vector<vartrajrange> &outtrue,
+			std::vector<vartrajrange> &outfalse) const {
+		const vartraj &tr = (*(in.tr)).find(v==-1?in.event.var:v)->second;
+		const auto &e = tr.cend();
+		double t0 = in.range.first;
+		double tend = in.range.second;
+		auto i0 = tr.upper_bound(t0-maxlag);
+		auto i1 = tr.upper_bound(t0-minlag);
+		typename D::statE stat;
+		for(auto i=i0;i!=i1;i++) stat.add(i->first,i->second,s);
+		double t1 = t0;
+		bool currval = static_cast<const D *>(this)->evalstat(stat);
+		while(t1<tend && i0!=e) {
+			t1 = std::min(i0==e ?
+				std::numeric_limits<double>::infinity() : i0->first+maxlag,
+						i1==e ?
+				std::numeric_limits<double>::infinity() : i1->first+minlag);
+			while (i0!=e && i0->first+maxlag<=t1) {
+				stat.del(i0->first,i0->second,s);
+				++i0;
+			}
+			while (i1!=e && i1->first+minlag<=t1) {
+				stat.add(i1->first,i1->second,s);
+				++i1;
+			}
+			if (t1>=tend) t1 = tend;
+			bool newval = static_cast<const D *>(this)->evalstat(stat);
+			if (t0<t1) {
+				if (!newval && currval) {
+					outtrue.emplace_back(in,t0,t1);
+					t0 = t1;
+					currval = false;
+				} else if (newval && !currval) {
+					outfalse.emplace_back(in,t0,t1);
+					t0 = t1;
+					currval = true;
+				}
+			}
+		}
+		if (t0<tend) {
+			if (currval) outtrue.emplace_back(in,t0,tend);
+			else outfalse.emplace_back(in,t0,tend);
+		}
+
+	}
+	virtual bool eval(const Trajectory &tr, eventtype event, double t) const {
+		const vartraj &vtr = tr.find(v==-1?event.var:v)->second;
+		double tnext
+			= std::nextafter(tnext,std::numeric_limits<double>::infinity());
+		double t0 = tnext-maxlag;
+		if (t0==t-maxlag)
+			t0 = std::nextafter(t0,std::numeric_limits<double>::infinity());
+		double t1 = tnext-minlag;
+		if (t1==t-minlag)
+			t1 = std::nextafter(t1,std::numeric_limits<double>::infinity());
+		auto i0 = vtr.lower_bound(t0);
+		auto i1 = vtr.lower_bound(t1);
+
+		typename D::statE stat;
+		for(auto i=i0;i!=i1;i++) stat.add(i->first,i->second,s);
+		return static_cast<const D *>(this)->evalstat(stat);
+	}
+
+	virtual bool eval(const Trajectory &tr, eventtype event, double t, double &until) const {
+		const vartraj &vtr = tr.find(v==-1?event.var:v)->second;
+		const auto &e = vtr.cend();
+		double tnext
+			= std::nextafter(t,std::numeric_limits<double>::infinity());
+		double t0 = tnext-maxlag;
+		if (t0==t-maxlag)
+			t0 = std::nextafter(t0,std::numeric_limits<double>::infinity());
+		double t1 = tnext-minlag;
+		if (t1==t-minlag)
+			t1 = std::nextafter(t1,std::numeric_limits<double>::infinity());
+		auto i0 = vtr.lower_bound(t0);
+		auto i1 = vtr.lower_bound(t1);
+		typename D::statE stat;
+		for(auto i=i0;i!=i1;i++) stat.add(i->first,i->second,s);
+		until = std::min(i0!=e ? i0->first+maxlag
+						: std::numeric_limits<double>::infinity(),
+				i1!=e ? i1->first+minlag
+						: std::numeric_limits<double>::infinity());
+		assert(until>t);
+		return static_cast<const D *>(this)->evalstat(stat);
+	}
+
+protected:
+	double minlag,maxlag;
+	int v;
+	int s;
+private:
+	friend class boost::serialization::access;
+	template<typename Ar>
+	void serialize(Ar &ar, const unsigned int ver) {
+		ar & BOOST_SERIALIZATION_BASE_OBJECT_NVP(pcimtest);
+		ar & BOOST_SERIALIZATION_NVP(minlag) & BOOST_SERIALIZATION_NVP(maxlag) & BOOST_SERIALIZATION_NVP(v)& BOOST_SERIALIZATION_NVP(s);
+	}
+};
+	
+
+
 // test if count of number of events of var testvar (-1 == currvar) at state teststate
 // from t-lag0 to t-lag1 is greater than thresh
-class countstatetest : public varstattest<countstatetest> {
+class counteventtest : public eventstattest<counteventtest> {
 public:
-	countstatetest(int thresh=0, int testvar=0, double lag0=0, double lag1=1, int teststate = 0)
-			: varstattest<countstatetest>(testvar,lag0,lag1, teststate) { theta=thresh; state = teststate;}
-	virtual ~countstatetest() {}
+	counteventtest(int thresh=0, int teststate = 0, int testvar=0, double lag0=0, double lag1=1)
+			: eventstattest<counteventtest>(testvar,teststate,lag0,lag1) { theta=thresh;}
+	virtual ~counteventtest() {}
 	virtual void print(std::ostream &os) const {
 		os << "# " << v << " in [" << maxlag << ',' << minlag << ") >= "
 				<< theta;
@@ -587,73 +705,29 @@ public:
 	//		<< maxlag << ',' << minlag << ") >= " << theta;
 	//}
 
-	struct statT {
-		statT() { n=0; }
+	struct statE {
+		statE() { n=0; }
 		int n;
-		void add(double,int) { n++; } //to be changed
-		void del(double,int) { n--; }
-		//void add(double,int s) { if(st == s) n++; }
-		//void del(double,int s) { if(st == s) n--; }
+		void add(double t,int s,int teststate) { if(teststate == s) n++; }
+		void del(double t,int s,int teststate) { if(teststate == s) n--; }
 	};
 
-	bool evalstat(const statT &s) const {
+	bool evalstat(const statE &s) const {
 		return s.n>=theta;
 	}
 	
 protected:
 	int theta;
-	int state;
 private:
 	friend class boost::serialization::access;
 	template<typename Ar>
 	void serialize(Ar &ar, const unsigned int ver) {
-		ar & boost::serialization::make_nvp("varstattest",
-			boost::serialization::base_object<varstattest<countstatetest>>(*this));
-		ar & BOOST_SERIALIZATION_NVP(theta) & BOOST_SERIALIZATION_NVP(state);
-	}
-};
-/*
-// test if mean of values of var testvar (-1 == currvar)
-// from t-lag0 to t-lag1 is greater than thresh
-// if no value in interval, mean is taken to be 0.0
-class meantest : public varstattest<meantest> {
-public:
-	meantest(double thresh=0, int testvar=0, double lag0=0, double lag1=1)
-			: varstattest<meantest>(testvar,lag0,lag1) { theta=thresh; }
-	virtual ~meantest() {}
-	virtual void print(std::ostream &os) const {
-		os << "mean " << v << " in [" << maxlag << ',' << minlag << ") >= "
-				<< theta;
-	}
-	virtual void print(std::ostream &os, const datainfo &info) const {
-		os << "mean " << info.dvarname(v) << " in [" << maxlag << ',' << minlag << ") >= "
-				<< theta;
-	}
-
-	struct statT {
-		statT() { n=0; m=0.0; }
-		int n;
-		double m;
-		void add(double,int v) { n++; m += v;}
-		void del(double,int v) { n--; m -= v;}
-	};
-
-	bool evalstat(const statT &s) const {
-		return (s.n >0 ? s.m/s.n : 0.0) >=theta;
-	}
-	
-protected:
-	double theta;
-private:
-	friend class boost::serialization::access;
-	template<typename Ar>
-	void serialize(Ar &ar, const unsigned int ver) {
-		ar & boost::serialization::make_nvp("varstattest",
-			boost::serialization::base_object<varstattest<meantest>>(*this));
+		ar & boost::serialization::make_nvp("eventstattest",
+			boost::serialization::base_object<eventstattest<counteventtest>>(*this));
 		ar & BOOST_SERIALIZATION_NVP(theta);
 	}
 };
-*/
+
 // test if current variable == testvar
 class vartest : public pcimtest {
 public:
@@ -669,10 +743,10 @@ public:
 		if (in.event.var==v) outtrue.emplace_back(in);
 		else outfalse.emplace_back(in);
 	}
-	virtual bool eval(Trajectory &tr, eventtype event, double t) const {
+	virtual bool eval(const Trajectory &tr, eventtype event, double t) const {
 		return event.var==v;
 	}
-	virtual bool eval(Trajectory &tr, eventtype event, double t, double &until) const {
+	virtual bool eval(const Trajectory &tr, eventtype event, double t, double &until) const {
 		until = std::numeric_limits<double>::infinity();
 		return event.var==v;
 	}
@@ -708,10 +782,10 @@ public:
 		if (in.tr->sx[v]>=theta) outtrue.emplace_back(in);
 		else outfalse.emplace_back(in);
 	}
-	virtual bool eval(Trajectory &tr, eventtype event, double t) const {
+	virtual bool eval(const Trajectory &tr, eventtype event, double t) const {
 		return tr.sx[v]>=theta;
 	}
-	virtual bool eval(Trajectory &tr, eventtype event, double t, double &until) const {
+	virtual bool eval(const Trajectory &tr, eventtype event, double t, double &until) const {
 		until = std::numeric_limits<double>::infinity();
 		return tr.sx[v]>=theta;
 	}
@@ -822,7 +896,7 @@ public:
 	virtual ~pcim() {
 	}
 
-	pcim(std::vector<Trajectory> &data, const std::vector<shptr<pcimtest>> &tests,
+	pcim(const std::vector<Trajectory> &data, const std::vector<shptr<pcimtest>> &tests,
 		const pcimparams &params, const std::vector<int> &states);
 
 	pcim(shptr<pcimtest> tst, 
@@ -973,9 +1047,9 @@ public:
 	}
 
 	// returns relevant leaves in ret and sum as return value
-	double getrate(Trajectory &tr, double t, double &until, std::map<eventtype, const pcim *, comparator> &ret, const std::vector<int> &states) const;
+	double getrate(const Trajectory &tr, double t, double &until, std::map<eventtype, const pcim *, comparator> &ret, const std::vector<int> &states) const;
 	// returns new time and sets var and val to the variable and its value
-	double getevent(Trajectory &tr, double &t, double expsamp, double unisamp, double normsamp,
+	double getevent(const Trajectory &tr, double &t, double expsamp, double unisamp, double normsamp,
 					int &var, int &state, double maxt, const std::vector<int> &states) const;
 
 	void print(std::ostream &os) const;
@@ -990,7 +1064,7 @@ public:
 		featurenames(ret,"");
 		return ret;
 	}
-	std::vector<double> trajtofeatures(Trajectory &tr) const {
+	std::vector<double> trajtofeatures(const Trajectory &tr) const {
 		std::vector<double> ret;
 		std::vector<vartrajrange> vtr;
 		for(int v=0;v<tr.size();v++)
@@ -998,7 +1072,7 @@ public:
 		trajtofeatures(std::vector<vartrajrange>{vtr},ret);
 		return ret;
 	}
-	double similarity(Trajectory &tr1, Trajectory &tr2) const {//measure similarity based on features
+	double similarity(const Trajectory &tr1, const Trajectory &tr2) const {//measure similarity based on features
 		std::vector<vartrajrange> vtr1;
 		for(int v=0;v<tr1.size();v++)
 			vtr1.emplace_back(&tr1,v);
@@ -1045,7 +1119,7 @@ private:
 	static double score(const ss &d, const pcimparams &p);
 	void calcleaf(const ss &d, const pcimparams &p);
 
-	double getratevar(Trajectory &tr, int var, int state, double t, double &until, const pcim *&leaf) const;
+	double getratevar(const Trajectory &tr, int var, int state, double t, double &until, const pcim *&leaf) const;
 
 	//void printhelp(std::ostream &os, int lvl, const datainfo *info=nullptr) const;
 	//void todothelp(std::ostream &os, int par, bool istrue, int &nn, const datainfo &info) const;
@@ -1124,8 +1198,8 @@ BOOST_CLASS_EXPORT_KEY(counttest)
 BOOST_CLASS_EXPORT_KEY(varstattest<counttest>)
 //BOOST_CLASS_EXPORT_KEY(meantest)
 //BOOST_CLASS_EXPORT_KEY(varstattest<meantest>)
-BOOST_CLASS_EXPORT_KEY(countstatetest)
-BOOST_CLASS_EXPORT_KEY(varstattest<countstatetest>)
+BOOST_CLASS_EXPORT_KEY(counteventtest)
+BOOST_CLASS_EXPORT_KEY(eventstattest<counteventtest>)
 BOOST_CLASS_EXPORT_KEY(vartest)
 BOOST_CLASS_EXPORT_KEY(staticgreqtest)
 BOOST_CLASS_EXPORT_KEY(staticeqtest)

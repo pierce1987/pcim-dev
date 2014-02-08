@@ -27,13 +27,13 @@ void printtime(ostream &os, double t, int colw, bool ishrs) {
 	}
 }
 
-void printdynamic(ostream &os, Trajectory &tr, bool incolumns, bool ishrs) {
-	vector<decltype(tr[0].begin())> it;
+void printdynamic(ostream &os, const Trajectory &tr, bool incolumns, bool ishrs) {
+	vector<decltype(tr.find(0)->second.begin())> it;
 	vector<int> varid;
 	int ndone = 0;
 	for(int i=0;i<tr.size();i++) {
-		if (tr[i].empty()) continue;
-		it.push_back(tr[i].begin());
+		if (tr.find(i)->second.empty()) continue;
+		it.push_back(tr.find(i)->second.begin());
 		varid.push_back(i);
 	}
 	int colw = 10;
@@ -49,7 +49,7 @@ void printdynamic(ostream &os, Trajectory &tr, bool incolumns, bool ishrs) {
 		int i=-1;
 		double t = numeric_limits<double>::infinity();
 		for(int j=0;j<it.size();j++)
-			if (it[j]!=tr[varid[j]].end() && it[j]->first<t) {
+			if (it[j]!=tr.find(varid[j])->second.end() && it[j]->first<t) {
 				t = it[j]->first;
 				i = j;
 			}
@@ -64,12 +64,12 @@ void printdynamic(ostream &os, Trajectory &tr, bool incolumns, bool ishrs) {
 			printtime(os,t,colw,ishrs);
 			os << " " << setw(colw) << it[i]->second << endl;
 		}
-		if (++it[i] == tr[varid[i]].end()) ndone++;
+		if (++it[i] == tr.find(varid[i])->second.end()) ndone++;
 	}
 	os.setf(osf);
 }
 
-void printtr(ostream &os, Trajectory &tr, bool incolumns, bool ishrs) {
+void printtr(ostream &os, const Trajectory &tr, bool incolumns, bool ishrs) {
 	printstatic(os,tr);
 	printdynamic(os,tr,incolumns,ishrs);
 }
