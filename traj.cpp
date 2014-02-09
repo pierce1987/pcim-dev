@@ -56,7 +56,7 @@ void printdynamic(ostream &os, const Trajectory &tr, bool incolumns, bool ishrs)
 		if (incolumns) {
 			printtime(os,t,colw,ishrs);
 			for(int j=0;j<i;j++) os << "|          ";
-			os << "|" << setw(colw) << it[i]->second;
+			os << "|" << setw(colw) << it[i]->second;//state
 			for(int j=i+1;j<varid.size();j++) os << "|          ";
 			os << endl;
 		} else {

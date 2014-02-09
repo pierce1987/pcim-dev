@@ -31,9 +31,6 @@ pcim::ss pcim::suffstats(const std::vector<vartrajrange> &data) {
 	ss ret;
 	ret.n=0.0;
 	ret.t=0.0;
-	ret.sum = zerowt;
-	ret.invar = zerowtvar;
-	ret.sum2 = 0.0;
 	for(const auto &x : data) {
 		ret.t += x.range.second-x.range.first;
 		const vartraj &vtr = (*(x.tr)).find(x.event.var)->second;
@@ -41,18 +38,10 @@ pcim::ss pcim::suffstats(const std::vector<vartrajrange> &data) {
 		auto i1 = vtr.upper_bound(x.range.second);
 		//ret.n += distance(i0,i1);
 		for(auto i = i0;i!=i1;++i) {
-			double y = i->second;//to be deleted
-
-			ret.sum += y;
-			ret.invar += 1.0;
-
-			ret.sum2 += y*y;
 			if(i->second == x.event.state)
 				ret.n++;
 		}
 	}
-	//ret.sum2 = ret.var/ret.n - ret.sum*ret.sum/ret.n/ret.n; // maybe not numerically
-				// stable enough?
 	return ret;
 }
 
@@ -62,27 +51,14 @@ constexpr double log2pi() { return std::log(8.0*std::atan(1)); }
 double pcim::score(const ss &d, const pcimparams &p) {
 	double a_n = p.a+d.n;
 	double b_n = p.b+d.t;
-
-	double hn = d.n/2.0;
-	double va_n = p.va+hn;
-	wtvarT vk_n = p.vk + d.invar;
-	wtT    mu_n = div(p.vk*p.vm + d.sum , vk_n);
-	//double meandiff = d.mean-p.vm;
-	//double vb_n = p.vb + hn*d.var + hn*p.vk*meandiff*meandiff/vk_n;
-	double vb_n = p.vb + (p.m2k - quad(mu_n,vk_n) + d.sum2)/2.0;
+	//double hn = d.n/2.0;
 
 	return p.lk
 
 		+ lgamma(a_n) - p.lga
-		+ p.alb - a_n*log(b_n)
+		+ p.alb - a_n*log(b_n);
 
-		+ lgamma(va_n) - p.lgva
-// check if below should be reversed! (I think it's okay, but not sure)
-		+ p.valvb - va_n*log(vb_n)
-
-		+ p.lvk/2.0 - log(vk_n)/2.0
-
-		- hn*log2pi();
+		//- hn*log2pi();//?
 }
 
 void pcim::calcxxinvsqrt(const ss &d) {
@@ -90,17 +66,6 @@ void pcim::calcxxinvsqrt(const ss &d) {
 
 void pcim::calcleaf(const ss &d, const pcimparams &p) {
 	rate = (p.a+d.n)/(p.b+d.t);
-	mu = div(p.vk*p.vm + d.sum, p.vk+d.invar);
-	double hn = d.n/2.0;
-	double va_n = p.va+hn;
-	wtvarT vk_n = p.vk + d.invar;
-	//double meandiff = d.mean-p.vm;
-	//double vb_n = p.vb + hn*d.var + hn*p.vk*meandiff*meandiff/vk_n;
-	double vb_n = p.vb + (p.m2k - quad(mu,vk_n) + d.sum2)/2.0;
-	// below is "Bayes equivalent"
-	//sigma = sqrt(vb_n*(vk_n+1)/(vk_n*(va_n-1)));
-	// instead, use MAP:
-	sigma = sqrt(vb_n/(va_n-0.5));
 	calcxxinvsqrt(d);
 }
 
@@ -234,10 +199,6 @@ double pcim::getevent(const Trajectory &tr, double &t, double expsamp, double un
 		unisamp -= it->second->rate/r;
 		if (unisamp<=0) { var = it->first.var; state = it->first.state; break; } //var and state of sampled event!!
 	}
-
-	//val = leaves[var]->mu;
-
-	//val += normsamp*leaves[var]->sigma;//value of sampled event!!
 	return t+expsamp/r;//time of sampled event!!
 }
 
@@ -278,7 +239,7 @@ void pcim::todot(ostream &os, const datainfo &info) const {
 void pcim::todothelp(ostream &os, int par, bool istrue, int &nn, const datainfo &info) const {
 	int mynode = nn++;
 	os << "\tNODE" << mynode << " [label=\"";
-	if (!ttree) os << "rate = " << rate << " (" << mu << ',' << sigma << ")";
+	if (!ttree) os << "rate = " << rate;
 	else test->print(os,info);
 	os << "\"];" << endl;
 	if (par>=0) os << "\tNODE" << par << " -> NODE" << mynode << " [label=\"" <<
@@ -292,7 +253,7 @@ void pcim::todothelp(ostream &os, int par, bool istrue, int &nn, const datainfo 
 void pcim::printhelp(ostream &os, int lvl, const datainfo *info) const {
 	for(int i=0;i<lvl;i++) os << "   ";
 	if (!ttree)
-		os << "rate = " << rate << " (" << mu << ',' << sigma << ") [" << stats.n << ',' << stats.t << ',' << stats.sum << ',' << stats.sum2 << "]" << endl;
+		os << "rate = " << rate << "[" << stats.n << ',' << stats.t << "]" << endl;
 	else {
 		os << "if ";
 		if (info!=nullptr) test->print(os,*info);
@@ -309,8 +270,6 @@ void pcim::getleaffeature(const vector<vartrajrange> &tr, array<double,nleaffeat
 	ss d = suffstats(tr);
 //leaf features
 	f[0] = d.n - rate*d.t;
-	f[1] = (d.sum - mu*d.n)/sigma;
-	f[2] = (d.sum2 - 2*mu*d.sum + mu*mu*d.n)/(sigma*sigma) - d.n;
 
 /*
 	double N = 0.0, D = 0.0, E = 0.0, T = 0.0;
@@ -343,7 +302,7 @@ void pcim::featurenames(vector<string> &ret, string prefix) const {
 
 array<string,pcim::nleaffeat> pcim::getleaffeaturenames() const {
 
-	return {"rate","mean","var"};
+	return {"rate"};
 
 }
 
@@ -395,8 +354,6 @@ BOOST_CLASS_EXPORT_IMPLEMENT(lasttest)
 BOOST_CLASS_EXPORT_IMPLEMENT(timetest)
 BOOST_CLASS_EXPORT_IMPLEMENT(counttest)
 BOOST_CLASS_EXPORT_IMPLEMENT(varstattest<counttest>)
-//BOOST_CLASS_EXPORT_IMPLEMENT(meantest)
-//BOOST_CLASS_EXPORT_IMPLEMENT(varstattest<meantest>)
 BOOST_CLASS_EXPORT_IMPLEMENT(counteventtest)
 BOOST_CLASS_EXPORT_IMPLEMENT(eventstattest<counteventtest>)
 BOOST_CLASS_EXPORT_IMPLEMENT(vartest)

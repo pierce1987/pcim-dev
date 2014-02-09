@@ -14,11 +14,6 @@
 #include <array>
 #include <future>
 
-// if defined, uses "persistance arcs" (ie next value depends on previous)
-//#define USEPERSIST
-
-//g++ -std=c++0x test.cpp pcim.cpp -I../../../boost/boost_1_55_0/ ../../../boost/boost_1_55_0/stage/lib/libboost_serialization.a -lboost_serialization -static-libstdc++
-
 namespace boost { namespace serialization { 
 	class access;
 }}
@@ -273,7 +268,7 @@ public:
 	inline double remerge(double base, double inc) const {
 		return base+inc;
 	}
-        //
+        
 	inline double breakup(double v, double &n) const {
 		double ret = std::remainder(v,m);
 		if (ret<0) ret += m;
@@ -859,37 +854,19 @@ public:
 		// alpha -- pseudo event counts
 		// beta -- pseudo durations
 		// kappa -- kappa^n is prior on tree of size n (kappa<=1!)
-		// valalpha, valbeta, valkappa, valmu -- normal-gamma
-		// 		priors for Gaussian distribution on event *value*
-		pcimparams(double alpha, double beta, double kappa,
-				const wtT &valmu, const wtvarT &valkappa, double valalpha,
-				double valbeta, int minnumevents=0, int numproc=1) {
+		pcimparams(double alpha, double beta, double kappa, int minnumevents=0, int numproc=1) {
 			a = alpha; b = beta; k = kappa;
-			va = valalpha; vb = valbeta; vk = valkappa; vm = valmu;
 			alb = alpha*::log(beta);
-			valvb = valalpha*::log(valbeta);
 			lga = std::lgamma(alpha);
-			lgva = std::lgamma(valalpha);
 			lk = ::log(kappa);
-			m2k = pcim::quad(valmu,valkappa);
-
-			lvk = ::log(valkappa);
-
 			nproc = numproc;
 			mne = minnumevents;
 		}
 	private:
 		double a,b,k;
-		double va,vb;
-		wtvarT vk;
-		wtT vm;
 		double alb; // alpha*log(beta)
 		double lga; // log(gamma(alpha))
 		double lk; // log(kappa)
-		double lgva; // log(gamma(valalpha))
-		double valvb; // valalpha * log(valbeta)
-		double lvk; // log(|valkappa|)
-		double m2k; // valmu^2*valkappa
 		int nproc,mne;
 	};
 
@@ -902,18 +879,15 @@ public:
 	pcim(shptr<pcimtest> tst, 
 		shptr<pcim> truebranch, shptr<pcim> falsebranch)
 			: test(tst), ttree(truebranch), ftree(falsebranch) {
-		rate = 1.0; mu = 0.0; sigma = 1.0;
+		rate = 1.0; 
 	}
 	pcim(pcimtest *tst, pcim *truebranch, pcim *falsebranch)
 			: test(tst), ttree(truebranch), ftree(falsebranch) {
-		rate = 1.0; mu = 0.0; sigma = 1.0;
+		rate = 1.0; 
 	}
 
-	pcim(double lambda=1.0, wtT mean=zerowt, double stddev=1.0)
-				: ttree(), ftree(), test() {
+	pcim(double lambda=1.0): ttree(), ftree(), test() {
 		rate =lambda;
-		mu = mean;
-		sigma = stddev;
 		globalm = 0;
 	}
 
@@ -935,7 +909,7 @@ public:
 
 	template<typename R>
 	Trajectory sample(double T,int nvar,R &rand, std::vector<int> &states) const {
-		Trajectory ret;//
+		Trajectory ret;
 		if (T<0.0) return ret;
 		for(int i=0;i<nvar;i++) {
 			ret[i].starttime() = 0.0;
@@ -943,107 +917,6 @@ public:
 		}
 		samplecomplete(ret,T,rand,states);
 		return ret;
-	}
-
-	template<typename Tst, typename R>
-	std::pair<double,double> eventprobhelp(Trajectory tr, double T, int vnum, Tst &&tst, R &rand, int nsamp=100, int nsubsample=5000) const {
-		std::normal_distribution<> normdist(0.0,1.0);
-		double truewt = 0.0, wt = 0.0;
-		for(int i=0;i<nsamp;i++) { // replace nsamp with bound on accuracy!
-			Trajectory h{tr};
-			double lastt = samplecomplete(h,T,rand);
-			double until,q;
-			const pcim *leaf;
-			q = getratevar(h,vnum,0,T,until,leaf);
-			double w = q; //*exp(-q*(T-lastt));
-			wt += w*nsubsample;
-			for(int i=0;i<nsubsample;i++) {
-
-				double y = leaf->mu + normdist(rand)*leaf->sigma ;
-
-				if (tst(y)) truewt += w;
-			}
-		
-		}
-		return std::make_pair(truewt,wt);
-	}
-
-	template<typename Tst, typename R>
-	double eventprob(Trajectory tr, double T, int vnum, Tst &&tst, R &rand, int nproc=1, int nsamp=100, int nsubsample=5000) const {
-		double truewt = 0.0, wt = 0.0;
-		if (nproc<=1) std::tie(truewt,wt) = eventprobhelp(tr,T,vnum,tst,rand,nsamp,nsubsample);
-		else {
-			std::vector<std::future<std::pair<double,double>>> futs(nproc);
-			std::vector<R> rs;
-			for(int i=0;i<nproc;i++) 
-				rs.emplace_back(rand());
-			for(int i=0;i<nproc;i++) {
-				auto &rr = rs[i];
-				futs[i] = async(std::launch::async,
-					[this,&tr,T,vnum,tst,&rr,nsubsample](int n) {
-						return this->eventprobhelp(tr,T,vnum,tst,rr,n,nsubsample);
-					},
-					nsamp*(i+1)/nproc - nsamp*i/nproc);
-			}
-			double ltruewt, lwt;
-			for(auto &f : futs) {
-				std::tie(ltruewt,lwt) = f.get();
-				truewt += ltruewt;
-				wt += lwt;
-			}
-		}
-		return truewt/wt;
-	}
-
-	template<typename R>
-	std::pair<double,double> eventprobthreshhelp(const Trajectory &tr, double T, int vnum,
-						double thresh, R &rand, int nsamp=100) const {
-		std::normal_distribution<> normdist(0.0,1.0);
-		double truewt = 0.0, wt = 0.0;
-		const double sqrt2 = std::sqrt(2.0);
-		for(int i=0;i<nsamp;i++) { // replace nsamp with bound on accuracy!
-			Trajectory h{tr};
-			double lastt = samplecomplete(h,T,rand);
-			double until,q;
-			const pcim *leaf;
-			q = getratevar(h,vnum,0,T,until,leaf);
-			double w = q; //*exp(-q*(T-lastt));
-			wt += w;
-
-			double meany = leaf->mu;
-
-			truewt += w*(0.5-std::erf((thresh-meany)/(leaf->sigma*sqrt2))/2.0);
-		}
-		return std::make_pair(truewt,wt);
-	}
-
-	template<typename R>
-	double eventprobthresh(const Trajectory &tr, double T, int vnum,
-						double thresh, R &rand, int nproc=1, int nsamp=100) const {
-		double truewt = 0.0, wt = 0.0;
-		if (nproc<=1) std::tie(truewt,wt) = eventprobthreshhelp(tr,T,vnum,thresh,rand,nsamp);
-		else {
-			std::vector<std::future<std::pair<double,double>>> futs(nproc);
-			std::vector<R> rs;
-			for(int i=0;i<nproc;i++)
-				rs.emplace_back(rand());
-			for(int i=0;i<nproc;i++) {
-				auto &rr = rs[i];
-				futs[i] = async(std::launch::async,
-					//eventprobthreshhelp,this,tr,T,vnum,thresh,rr,
-					[this,&tr,T,vnum,thresh,&rr](int n) {
-						return this->eventprobthreshhelp(tr,T,vnum,thresh,rr,n);
-					},
-					nsamp*(i+1)/nproc - nsamp*i/nproc);
-			}
-			double ltruewt, lwt;
-			for(auto &f : futs) {
-				std::tie(ltruewt,lwt) = f.get();
-				truewt += ltruewt;
-				wt += lwt;
-			}
-		}
-		return truewt/wt;
 	}
 
 	// returns relevant leaves in ret and sum as return value
@@ -1087,20 +960,14 @@ private:
 	public:
 		double n; // not int, in case need expected value
 		double t; // total time
-		//  below, y is value of event & x is predictors (1 if not USEPERSIST)
-		double sum2; // sum y^2  / n
-		pcim::wtT sum;  // sum xy   / n
-		pcim::wtvarT invar;  // sum x^2  (==n if not USEPERSIST)
 	private:
 		friend class boost::serialization::access;
 		template<typename Ar>
 		void serialize(Ar &ar, const unsigned int ver) {
 			if (ver==0) {
-				wtT mean;
-				ar & BOOST_SERIALIZATION_NVP(n) & BOOST_SERIALIZATION_NVP(t) & BOOST_SERIALIZATION_NVP(mean) & BOOST_SERIALIZATION_NVP(sum2) & BOOST_SERIALIZATION_NVP(invar);
-				sum = mean*n;
+				ar & BOOST_SERIALIZATION_NVP(n) & BOOST_SERIALIZATION_NVP(t);
 			} else {
-				ar & BOOST_SERIALIZATION_NVP(n) & BOOST_SERIALIZATION_NVP(t) & BOOST_SERIALIZATION_NVP(sum) & BOOST_SERIALIZATION_NVP(sum2) & BOOST_SERIALIZATION_NVP(invar);
+				ar & BOOST_SERIALIZATION_NVP(n) & BOOST_SERIALIZATION_NVP(t);
 			}
 		}
 	};
@@ -1149,8 +1016,6 @@ private:
 	shptr<pcim> ftree,ttree;
 	shptr<pcimtest> test;
 	double rate;
-	wtT mu;
-	double sigma;
 	ss stats;
 	int globalm; // number of traj it was built from
 
@@ -1169,8 +1034,6 @@ private:
 	void save(Ar &ar, const unsigned int ver) const {
 		ar & BOOST_SERIALIZATION_NVP(globalm);
 		ar & BOOST_SERIALIZATION_NVP(rate);
-		ar & BOOST_SERIALIZATION_NVP(mu);
-		ar & BOOST_SERIALIZATION_NVP(sigma);
 		ar & BOOST_SERIALIZATION_NVP(stats);
 		ar & BOOST_SERIALIZATION_NVP(test);
 		ar & BOOST_SERIALIZATION_NVP(ttree);
@@ -1180,8 +1043,6 @@ private:
 	void load(Ar &ar, const unsigned int ver) {
 		ar & BOOST_SERIALIZATION_NVP(globalm);
 		ar & BOOST_SERIALIZATION_NVP(rate);
-		ar & BOOST_SERIALIZATION_NVP(mu);
-		ar & BOOST_SERIALIZATION_NVP(sigma);
 		ar & BOOST_SERIALIZATION_NVP(stats);
 		ar & BOOST_SERIALIZATION_NVP(test);
 		ar & BOOST_SERIALIZATION_NVP(ttree);
@@ -1196,8 +1057,6 @@ BOOST_CLASS_EXPORT_KEY(lasttest)
 BOOST_CLASS_EXPORT_KEY(timetest)
 BOOST_CLASS_EXPORT_KEY(counttest)
 BOOST_CLASS_EXPORT_KEY(varstattest<counttest>)
-//BOOST_CLASS_EXPORT_KEY(meantest)
-//BOOST_CLASS_EXPORT_KEY(varstattest<meantest>)
 BOOST_CLASS_EXPORT_KEY(counteventtest)
 BOOST_CLASS_EXPORT_KEY(eventstattest<counteventtest>)
 BOOST_CLASS_EXPORT_KEY(vartest)
