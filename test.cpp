@@ -55,7 +55,7 @@ int main(int argc, char **argv) {
 		for(double t0=0.0;t0<=4.0;t0+=2.0)
 			for(double t1=0.0;t1<t0;t1+=2.0) {
 				for(int i=1;i<3;i++)
-					tests.emplace_back(new counttest(i,v,t0,t1,0));
+					tests.emplace_back(new varcounttest(i,v,t0,t1));
 				//for(double t=-0.5;t<=0.5;t+=0.5) 
 					//tests.emplace_back(new meantest(t,v,t0,t1));
 			}

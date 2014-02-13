@@ -324,7 +324,7 @@ private:
 template<typename D>
 class varstattest : public pcimtest {
 public:
-	varstattest(int testvar=0, double lag0=0, double lag1=1, int teststate=0) {
+	varstattest(int testvar=0, double lag0=0, double lag1=1, int teststate=-1) {//if teststate omitted (== -1), we only care about var, not eventtypes.
 		v = testvar;
 		s = teststate;
 		maxlag = std::max(lag0,lag1);
@@ -343,7 +343,8 @@ public:
 		auto i0 = tr.upper_bound(t0-maxlag);
 		auto i1 = tr.upper_bound(t0-minlag);
 		typename D::statT stat;
-		for(auto i=i0;i!=i1;i++) stat.add(i->first,i->second);
+		for(auto i=i0;i!=i1;i++) if(s == -1 || i->second == s) stat.add(i->first,i->second);
+
 		double t1 = t0;
 		bool currval = static_cast<const D *>(this)->evalstat(stat);
 		while(t1<tend && i0!=e) {
@@ -352,11 +353,11 @@ public:
 						i1==e ?
 				std::numeric_limits<double>::infinity() : i1->first+minlag);
 			while (i0!=e && i0->first+maxlag<=t1) {
-				stat.del(i0->first,i0->second);
+				if(s == -1 || i0->second == s) stat.del(i0->first,i0->second);
 				++i0;
 			}
 			while (i1!=e && i1->first+minlag<=t1) {
-				stat.add(i1->first,i1->second);
+				if(s == -1 || i1->second == s) stat.add(i1->first,i1->second);
 				++i1;
 			}
 			if (t1>=tend) t1 = tend;
@@ -393,7 +394,7 @@ public:
 		auto i1 = vtr.lower_bound(t1);
 
 		typename D::statT stat;
-		for(auto i=i0;i!=i1;i++) stat.add(i->first,i->second);
+		for(auto i=i0;i!=i1;i++) if(s == -1 || i->second == s) stat.add(i->first,i->second);
 		return static_cast<const D *>(this)->evalstat(stat);
 	}
 
@@ -411,7 +412,7 @@ public:
 		auto i0 = vtr.lower_bound(t0);
 		auto i1 = vtr.lower_bound(t1);
 		typename D::statT stat;
-		for(auto i=i0;i!=i1;i++) stat.add(i->first,i->second);
+		for(auto i=i0;i!=i1;i++) if(s == -1 || i->second == s) stat.add(i->first,i->second);
 		until = std::min(i0!=e ? i0->first+maxlag
 						: std::numeric_limits<double>::infinity(),
 				i1!=e ? i1->first+minlag
@@ -436,11 +437,11 @@ private:
 
 // test if count of number of events of var testvar (-1 == currvar)
 // from t-lag0 to t-lag1 is greater than thresh
-class counttest : public varstattest<counttest> {
+class varcounttest : public varstattest<varcounttest> {
 public:
-	counttest(int thresh=0, int testvar=0, double lag0=0, double lag1=1, int teststate = 0)
-			: varstattest<counttest>(testvar,lag0,lag1, teststate) { theta=thresh; }
-	virtual ~counttest() {}
+	varcounttest(int thresh=0, int testvar=0, double lag0=0, double lag1=1, int teststate = -1)
+			: varstattest<varcounttest>(testvar,lag0,lag1, teststate) { theta=thresh; }
+	virtual ~varcounttest() {}
 	virtual void print(std::ostream &os) const {
 		os << "# " << v << " in [" << maxlag << ',' << minlag << ") >= "
 				<< theta;
@@ -469,133 +470,18 @@ private:
 	void serialize(Ar &ar, const unsigned int ver) {
 		//ar & BOOST_SERIALIZATION_BASE_OBJECT_NVP(varstattest<counttest>);
 		ar & boost::serialization::make_nvp("varstattest",
-			boost::serialization::base_object<varstattest<counttest>>(*this));
+			boost::serialization::base_object<varstattest<varcounttest>>(*this));
 		ar & BOOST_SERIALIZATION_NVP(theta);
 	}
 };
 
-//new, associate to eventtype
-template<typename D>
-class eventstattest : public pcimtest {
-public:
-	eventstattest(int testvar=0,int teststate=0, double lag0=0, double lag1=1) {
-		v = testvar;
-		s = teststate;
-		maxlag = std::max(lag0,lag1);
-		minlag = std::min(lag0,lag1);
-	}
-	virtual ~eventstattest() {}
-	virtual void print(std::ostream &os) const = 0;
-	virtual void print(std::ostream &os, const datainfo &info) const =0;
-	virtual void chop(const vartrajrange &in,
-			std::vector<vartrajrange> &outtrue,
-			std::vector<vartrajrange> &outfalse) const {
-		const vartraj &tr = (*(in.tr)).find(v==-1?in.event.var:v)->second;
-		const auto &e = tr.cend();
-		double t0 = in.range.first;
-		double tend = in.range.second;
-		auto i0 = tr.upper_bound(t0-maxlag);
-		auto i1 = tr.upper_bound(t0-minlag);
-		typename D::statE stat;
-		for(auto i=i0;i!=i1;i++) stat.add(i->first,i->second,s);
-		double t1 = t0;
-		bool currval = static_cast<const D *>(this)->evalstat(stat);
-		while(t1<tend && i0!=e) {
-			t1 = std::min(i0==e ?
-				std::numeric_limits<double>::infinity() : i0->first+maxlag,
-						i1==e ?
-				std::numeric_limits<double>::infinity() : i1->first+minlag);
-			while (i0!=e && i0->first+maxlag<=t1) {
-				stat.del(i0->first,i0->second,s);
-				++i0;
-			}
-			while (i1!=e && i1->first+minlag<=t1) {
-				stat.add(i1->first,i1->second,s);
-				++i1;
-			}
-			if (t1>=tend) t1 = tend;
-			bool newval = static_cast<const D *>(this)->evalstat(stat);
-			if (t0<t1) {
-				if (!newval && currval) {
-					outtrue.emplace_back(in,t0,t1);
-					t0 = t1;
-					currval = false;
-				} else if (newval && !currval) {
-					outfalse.emplace_back(in,t0,t1);
-					t0 = t1;
-					currval = true;
-				}
-			}
-		}
-		if (t0<tend) {
-			if (currval) outtrue.emplace_back(in,t0,tend);
-			else outfalse.emplace_back(in,t0,tend);
-		}
-
-	}
-	virtual bool eval(const Trajectory &tr, eventtype event, double t) const {
-		const vartraj &vtr = tr.find(v==-1?event.var:v)->second;
-		double tnext
-			= std::nextafter(tnext,std::numeric_limits<double>::infinity());
-		double t0 = tnext-maxlag;
-		if (t0==t-maxlag)
-			t0 = std::nextafter(t0,std::numeric_limits<double>::infinity());
-		double t1 = tnext-minlag;
-		if (t1==t-minlag)
-			t1 = std::nextafter(t1,std::numeric_limits<double>::infinity());
-		auto i0 = vtr.lower_bound(t0);
-		auto i1 = vtr.lower_bound(t1);
-
-		typename D::statE stat;
-		for(auto i=i0;i!=i1;i++) stat.add(i->first,i->second,s);
-		return static_cast<const D *>(this)->evalstat(stat);
-	}
-
-	virtual bool eval(const Trajectory &tr, eventtype event, double t, double &until) const {
-		const vartraj &vtr = tr.find(v==-1?event.var:v)->second;
-		const auto &e = vtr.cend();
-		double tnext
-			= std::nextafter(t,std::numeric_limits<double>::infinity());
-		double t0 = tnext-maxlag;
-		if (t0==t-maxlag)
-			t0 = std::nextafter(t0,std::numeric_limits<double>::infinity());
-		double t1 = tnext-minlag;
-		if (t1==t-minlag)
-			t1 = std::nextafter(t1,std::numeric_limits<double>::infinity());
-		auto i0 = vtr.lower_bound(t0);
-		auto i1 = vtr.lower_bound(t1);
-		typename D::statE stat;
-		for(auto i=i0;i!=i1;i++) stat.add(i->first,i->second,s);
-		until = std::min(i0!=e ? i0->first+maxlag
-						: std::numeric_limits<double>::infinity(),
-				i1!=e ? i1->first+minlag
-						: std::numeric_limits<double>::infinity());
-		assert(until>t);
-		return static_cast<const D *>(this)->evalstat(stat);
-	}
-
-protected:
-	double minlag,maxlag;
-	int v;
-	int s;
-private:
-	friend class boost::serialization::access;
-	template<typename Ar>
-	void serialize(Ar &ar, const unsigned int ver) {
-		ar & BOOST_SERIALIZATION_BASE_OBJECT_NVP(pcimtest);
-		ar & BOOST_SERIALIZATION_NVP(minlag) & BOOST_SERIALIZATION_NVP(maxlag) & BOOST_SERIALIZATION_NVP(v)& BOOST_SERIALIZATION_NVP(s);
-	}
-};
-	
-
-
 // test if count of number of events of var testvar (-1 == currvar) at state teststate
 // from t-lag0 to t-lag1 is greater than thresh
-class counteventtest : public eventstattest<counteventtest> {
+class eventcounttest : public varstattest<eventcounttest> {
 public:
-	counteventtest(int thresh=0, int teststate = 0, int testvar=0, double lag0=0, double lag1=1)
-			: eventstattest<counteventtest>(testvar,teststate,lag0,lag1) { theta=thresh;}
-	virtual ~counteventtest() {}
+	eventcounttest(int thresh=0, int testvar=0, double lag0=0, double lag1=1, int teststate = 0)
+			: varstattest<eventcounttest>(testvar,lag0,lag1,teststate) { theta=thresh;}
+	virtual ~eventcounttest() {}
 	virtual void print(std::ostream &os) const {
 		os << "# " << v << " in [" << maxlag << ',' << minlag << ") >= "
 				<< theta;
@@ -605,14 +491,14 @@ public:
 			<< maxlag << ',' << minlag << ") >= " << theta;
 	}
 
-	struct statE {
-		statE() { n=0; }
+	struct statT {
+		statT() { n=0; }
 		int n;
-		void add(double t,int s,int teststate) { if(teststate == s) n++; }
-		void del(double t,int s,int teststate) { if(teststate == s) n--; }
+		void add(double t,int s) { n++; }
+		void del(double t,int s) { n--; }
 	};
 
-	bool evalstat(const statE &s) const {
+	bool evalstat(const statT &s) const {
 		return s.n>=theta;
 	}
 	
@@ -622,8 +508,8 @@ private:
 	friend class boost::serialization::access;
 	template<typename Ar>
 	void serialize(Ar &ar, const unsigned int ver) {
-		ar & boost::serialization::make_nvp("eventstattest",
-			boost::serialization::base_object<eventstattest<counteventtest>>(*this));
+		ar & boost::serialization::make_nvp("varstattest",
+			boost::serialization::base_object<varstattest<eventcounttest>>(*this));
 		ar & BOOST_SERIALIZATION_NVP(theta);
 	}
 };
@@ -878,10 +764,10 @@ private:
 BOOST_CLASS_EXPORT_KEY(pcimtest)
 BOOST_CLASS_EXPORT_KEY(lasttest)
 BOOST_CLASS_EXPORT_KEY(timetest)
-BOOST_CLASS_EXPORT_KEY(counttest)
-BOOST_CLASS_EXPORT_KEY(varstattest<counttest>)
-BOOST_CLASS_EXPORT_KEY(counteventtest)
-BOOST_CLASS_EXPORT_KEY(eventstattest<counteventtest>)
+BOOST_CLASS_EXPORT_KEY(varcounttest)
+BOOST_CLASS_EXPORT_KEY(varstattest<varcounttest>)
+BOOST_CLASS_EXPORT_KEY(eventcounttest)
+BOOST_CLASS_EXPORT_KEY(varstattest<eventcounttest>)
 BOOST_CLASS_EXPORT_KEY(vartest)
 BOOST_CLASS_EXPORT_KEY(pcim)
 BOOST_SERIALIZATION_SHARED_PTR(pcimtest)
