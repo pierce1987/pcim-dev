@@ -103,7 +103,6 @@ private:
 
 class Trajectory : public std::map<int, vartraj> {
 public:
-	// only initializes non-static vars
 	int counter = 0;
 	Trajectory(std::initializer_list<vartraj> data) {
 		for(auto &x : data){
@@ -115,11 +114,9 @@ public:
 	//Trajectory(int nvar) : std::vector<vartraj>(nvar) {
 	//}
 
-	Trajectory(const Trajectory &tr, double endt) : sx(tr.sx) {
+	Trajectory(const Trajectory &tr, double endt){
 		for(auto &vtr : tr) emplace(std::make_pair(vtr.first,vartraj(vtr.second,endt)));//??
 	}
-	
-	std::vector<double> sx; // static attributes
 };
 
 void printtr(std::ostream &os, const Trajectory &tr, bool incolumns=true, bool ishrs=false);

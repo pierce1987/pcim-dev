@@ -45,28 +45,18 @@ pcim::ss pcim::suffstats(const std::vector<vartrajrange> &data) {
 	return ret;
 }
 
-constexpr double log2pi() { return std::log(8.0*std::atan(1)); }
-
 
 double pcim::score(const ss &d, const pcimparams &p) {
 	double a_n = p.a+d.n;
 	double b_n = p.b+d.t;
-	//double hn = d.n/2.0;
 
 	return p.lk
-
 		+ lgamma(a_n) - p.lga
 		+ p.alb - a_n*log(b_n);
-
-		//- hn*log2pi();//?
-}
-
-void pcim::calcxxinvsqrt(const ss &d) {
 }
 
 void pcim::calcleaf(const ss &d, const pcimparams &p) {
 	rate = (p.a+d.n)/(p.b+d.t);
-	calcxxinvsqrt(d);
 }
 
 pcim::pcim(const vector<vartrajrange> &data, const pcim::ss &s,
@@ -104,8 +94,6 @@ pcim::testpick pcim::picktest(const vector<vartrajrange> &data,
 	return ret;
 }
 
-//vector<shptr<pcimtest>> ancestors;
-
 void pcim::build(const vector<vartrajrange> &data, const ss &s,
 		const vector<shptr<pcimtest>> &tests,
 		double basescore, const pcimparams &params) {
@@ -135,41 +123,12 @@ void pcim::build(const vector<vartrajrange> &data, const ss &s,
 	}
 	if (sc > basescore) {
 		test = pick.test;
-/*
-		//assert(pick.ss1.n+pick.ss2.n==s.n);
-		if (pick.ss1.n+pick.ss2.n != s.n) {
-			test->print(cout); cout << " " << pick.ss1.n << ' ' << pick.ss2.n << endl;
-			bool dbool = false;
-			for(auto & a : ancestors) dbool |= (a==test);
-			if (dbool) {
-				cout << "here!" << endl;
-				vector<vartrajrange> td1,td2;
-				for(auto &x : data) test->chop(x,td1,td2);
-				cout << "done!" << endl;
-			} else {
-				for(auto &x : data) {
-					vector<vartrajrange> td1,td2;
-					vector<vartrajrange> xx {x};
-					test->chop(x,td1,td2);
-					ss tss1 = suffstats(td1), tss2 = suffstats(td2);
-					ss press = suffstats(xx);
-					if (press.n != tss1.n + tss2.n) {
-						cout << "ah ha!" << endl;
-						td1.clear(); td2.clear();
-						test->chop(x,td1,td2);
-						assert(0);
-					} else cout << "nope" << endl;
-				}
-			}
-			assert(0);
-		}
-		ancestors.push_back(test);
-*/
+
 		ttree = shptr<pcim>(new pcim(pick.d1,pick.ss1,
 									tests,pick.s1,params,globalm));
 		ftree = shptr<pcim>(new pcim(pick.d2,pick.ss2,
 									tests,pick.s2,params,globalm));
-		//ancestors.pop_back();
+
 	} else {
 		ttree.reset();
 		ftree.reset();
@@ -184,7 +143,7 @@ double pcim::getevent(const Trajectory &tr, double &t, double expsamp, double un
 	//tr.print(cout); cout << endl;
 	//cout << t << " w/ " << expsamp << endl;
 	double until;
-	map<eventtype, const pcim *, comparator> leaves;
+	map<eventtype, const pcim *, eventcomp> leaves;
 	double r = getrate(tr,t,until,leaves,states);
 	while(expsamp>(until-t)*r) {
 		expsamp -= (until-t)*r;
@@ -203,7 +162,7 @@ double pcim::getevent(const Trajectory &tr, double &t, double expsamp, double un
 }
 
 double pcim::getrate(const Trajectory &tr, double t, double &until,
-			map<eventtype, const pcim *, comparator> &ret, const vector<int> &states) const {
+			map<eventtype, const pcim *, eventcomp> &ret, const vector<int> &states) const {
 	until = numeric_limits<double>::infinity();
 	double r = 0.0;
 	for(int i=0;i<tr.size();i++)
@@ -357,6 +316,4 @@ BOOST_CLASS_EXPORT_IMPLEMENT(varstattest<counttest>)
 BOOST_CLASS_EXPORT_IMPLEMENT(counteventtest)
 BOOST_CLASS_EXPORT_IMPLEMENT(eventstattest<counteventtest>)
 BOOST_CLASS_EXPORT_IMPLEMENT(vartest)
-BOOST_CLASS_EXPORT_IMPLEMENT(staticgreqtest)
-BOOST_CLASS_EXPORT_IMPLEMENT(staticeqtest)
 BOOST_CLASS_EXPORT_IMPLEMENT(pcim)

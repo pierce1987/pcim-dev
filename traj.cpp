@@ -4,11 +4,6 @@
 
 using namespace std;
 
-void printstatic(ostream &os, const Trajectory &tr) {
-	for(int i=0;i<tr.sx.size();i++)
-		os << "static " << i << ": " << tr.sx[i] << endl;
-}
-
 void printtime(ostream &os, double t, int colw, bool ishrs) {
 	if (!ishrs) os << setw(colw) << t;
 	else {
@@ -70,7 +65,6 @@ void printdynamic(ostream &os, const Trajectory &tr, bool incolumns, bool ishrs)
 }
 
 void printtr(ostream &os, const Trajectory &tr, bool incolumns, bool ishrs) {
-	printstatic(os,tr);
 	printdynamic(os,tr,incolumns,ishrs);
 }
 

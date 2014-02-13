@@ -26,7 +26,7 @@ struct eventtype{
 	int state;
 };
 
-struct comparator{
+struct eventcomp{
 	bool operator() (const eventtype& lhs, const eventtype& rhs) const{
 		return std::make_pair(lhs.var, lhs.state)<std::make_pair(rhs.var, rhs.state);		
 	}
@@ -34,13 +34,11 @@ struct comparator{
 
 struct vartrajrange {
 	vartrajrange(const Trajectory *traject, eventtype e, double t0, double t1) : range(t0,t1), tr(traject) {
-		event.var = e.var;
-		event.state = e.state;
+		event = e;
 	}
 	vartrajrange(const vartrajrange &vtr, double t0, double t1) : range(t0,t1) {
 		tr = vtr.tr;
-		event.var = vtr.event.var;
-		event.state = vtr.event.state;
+		event = vtr.event;
 	}
 	vartrajrange(const Trajectory *traject, int v){
 		tr = traject;
@@ -51,8 +49,7 @@ struct vartrajrange {
 	}
 	vartrajrange(const Trajectory *traject, eventtype e){
 		tr = traject;
-		event.var = e.var;
-		event.state = e.state;
+		event = e;
 		range.first = (*traject).find(e.var)->second.starttime(),
 		range.second = (*traject).find(e.var)->second.endtime();
 	}
@@ -80,94 +77,8 @@ private:
 	void serialize(Ar &ar, const unsigned int ver) {
 	}
 };
-/*
-// tests if last value of testvar >= thresh (if no last value, value taken
-//  to be 0)
-class lasttest : public pcimtest {
-public:
-	lasttest(int testvar=0, double thresh=0) {
-		v = testvar;
-		theta = thresh;
-	}
-	virtual ~lasttest() {}
-	virtual void print(std::ostream &os) const {
-		os << "most recent " << v << " >= " << theta;
-	}
-	virtual void print(std::ostream &os, const datainfo &info) const {
-		os << "most recent value for " << info.dvarname(v) << " >= " << theta;
-	}
-	virtual void chop(const vartrajrange &in,
-			std::vector<vartrajrange> &outtrue,
-			std::vector<vartrajrange> &outfalse) const {
-		const vartraj &tr = (*(in.tr))[v==-1?in.var:v];
-		const auto e = tr.cend();
-		double t0 = in.range.first;
-		double tend = in.range.second;
-		auto i0 = tr.upper_bound(t0);
-		if (i0!=tr.begin()) --i0;
-		auto i1 = tr.lower_bound(tend);
-		bool currval = (i0==e ? 0.0 : i0->second.v) >=theta;
-		double t1 = i0->first;
-		while(t1<tend && i0!=e) {
-			++i0;
-			while (i0!=e && i0->first<=t1) ++i0;
-			if (i0==e || i0->first>=tend) t1 = tend;
-			else t1 = i0->first;
-			bool newval = (i0==e ? 0.0 : i0->second.v) >= theta;
-			if (!newval && currval) {
-				outtrue.emplace_back(in,t0,t1);
-				t0 = t1;
-				currval = false;
-			} else if (newval && !currval) {
-				outfalse.emplace_back(in,t0,t1);
-				t0 = t1;
-				currval = true;
-			}
-		}
-		if (t0<tend) {
-			if (currval) outtrue.emplace_back(in,t0,tend);
-			else outfalse.emplace_back(in,t0,tend);
-		}
-	}
-	virtual bool eval(const traj &tr, int var, double t) const {
-		const vartraj &vtr = tr[v==-1?var:v];
-		if (vtr.empty()) return 0.0 >= theta;
-		auto i0 = vtr.lower_bound(t);
-		if (i0==vtr.cend() || i0->first>t) --i0;
-		return (i0==vtr.cend() ? 0.0 : i0->second.v) >= theta;
-	}
 
-	virtual bool eval(const traj &tr, int var, double t, double &until) const {
-		const vartraj &vtr = tr[v==-1?var:v];
-		if (vtr.empty()) {
-			until = std::numeric_limits<double>::infinity();
-			return 0.0 >= theta;
-		}
-		auto i0 = vtr.lower_bound(t);
-		auto e = vtr.cend();
-		auto i1 = i0;
-		if (i0==e || i0->first>t) --i0;
-		else ++i1;
-		until = i1!=e ? i1->first : std::numeric_limits<double>::infinity();
-		assert(until>t);
-		return (i0==e ? 0.0 : i0->second.v) >= theta;
-	}
-
-protected:
-	double theta;
-	int v;
-private:
-	friend class boost::serialization::access;
-	template<typename Ar>
-	void serialize(Ar &ar, const unsigned int ver) {
-		ar & BOOST_SERIALIZATION_BASE_OBJECT_NVP(pcimtest);
-		ar & BOOST_SERIALIZATION_NVP(v) & BOOST_SERIALIZATION_NVP(theta);
-	}
-};
-*/
-
-// tests if last state of testvar == teststate (if no last state, state taken
-//  to be 0)
+// tests if last state of testvar == teststate (if no last state, state taken to be 0)
 class lasttest : public pcimtest {
 public:
 	lasttest(int testvar=0, int teststate=0) {
@@ -252,10 +163,8 @@ private:
 
 class timetest : public pcimtest {
 public:
-	// stadd is the index of a static variable to add to the time
-	// (-1 => none)
-	timetest(double tstart=0, double tend=1, double mod=1, int stadd=-1) {
-		t0 = tstart; t1 = tend; m = mod; sadd = stadd;
+	timetest(double tstart=0, double tend=1, double mod=1) {
+		t0 = tstart; t1 = tend; m = mod;
 	}
 	virtual ~timetest() {}
 	virtual void print(std::ostream &os) const {
@@ -282,9 +191,8 @@ public:
 		int igt = outtrue.size();
 		int igf = outfalse.size();
 		double temp;
-		double del = sadd<0 ? 0 : -in.tr->sx[sadd];
-		double myt0 = breakup(t0+del,temp);
-		double myt1 = breakup(t1+del,temp);
+		double myt0 = breakup(t0,temp);
+		double myt1 = breakup(t1,temp);
 		double startbase,endbase;
 		double start = breakup(in.range.first,startbase);
 		double end = breakup(in.range.second,endbase);
@@ -369,9 +277,8 @@ public:
 		
 	virtual bool eval(const Trajectory &tr, eventtype event, double t) const {
 		double temp;
-		double del = sadd<0 ? 0 : -tr.sx[sadd];
-		double myt0 = breakup(t0+del,temp);
-		double myt1 = breakup(t1+del,temp);
+		double myt0 = breakup(t0,temp);
+		double myt1 = breakup(t1,temp);
 		double tbase;
 		double tmod = breakup(t,tbase);
 		double tmin,tmax;
@@ -381,9 +288,8 @@ public:
 	}
 	virtual bool eval(const Trajectory &tr, eventtype event, double t, double &until) const {
 		double temp;
-		double del = sadd<0 ? 0 : -tr.sx[sadd];
-		double myt0 = breakup(t0+del,temp);
-		double myt1 = breakup(t1+del,temp);
+		double myt0 = breakup(t0,temp);
+		double myt1 = breakup(t1,temp);
 		double tbase;
 		double tmod = breakup(t,tbase);
 		double tmin,tmax;
@@ -405,13 +311,12 @@ public:
 
 private:
 	double t0,t1,m;
-	int sadd;
 private:
 	friend class boost::serialization::access;
 	template<typename Ar>
 	void serialize(Ar &ar, const unsigned int ver) {
 		ar & BOOST_SERIALIZATION_BASE_OBJECT_NVP(pcimtest);
-		ar & BOOST_SERIALIZATION_NVP(t0) & BOOST_SERIALIZATION_NVP(t1) & BOOST_SERIALIZATION_NVP(m) & BOOST_SERIALIZATION_NVP(sadd);
+		ar & BOOST_SERIALIZATION_NVP(t0) & BOOST_SERIALIZATION_NVP(t1) & BOOST_SERIALIZATION_NVP(m);
 	}
 };
 
@@ -756,85 +661,6 @@ private:
 	}
 };
 
-//statetest???
-
-// tests a static value against testval.
-class staticgreqtest : public pcimtest {
-public:
-	staticgreqtest(double testval=0, int testvar=0) : pcimtest() {
-		v = testvar; theta=testval;
-	};
-	virtual ~staticgreqtest() {} ;
-	virtual void print(std::ostream &os) const {
-		os << "svar(" << v << ") >= " << theta;
-	}
-	virtual void print(std::ostream &os, const datainfo &info) const {
-		os << info.svarnames[v] << " >= " << theta;
-	}
-	virtual void chop(const vartrajrange &in,
-			std::vector<vartrajrange> &outtrue,
-			std::vector<vartrajrange> &outfalse) const {
-		if (in.tr->sx[v]>=theta) outtrue.emplace_back(in);
-		else outfalse.emplace_back(in);
-	}
-	virtual bool eval(const Trajectory &tr, eventtype event, double t) const {
-		return tr.sx[v]>=theta;
-	}
-	virtual bool eval(const Trajectory &tr, eventtype event, double t, double &until) const {
-		until = std::numeric_limits<double>::infinity();
-		return tr.sx[v]>=theta;
-	}
-private:
-	int v;
-	double theta;
-private:
-	friend class boost::serialization::access;
-	template<typename Ar>
-	void serialize(Ar &ar, const unsigned int ver) {
-		ar & BOOST_SERIALIZATION_BASE_OBJECT_NVP(pcimtest);
-		ar & BOOST_SERIALIZATION_NVP(v) & BOOST_SERIALIZATION_NVP(theta);
-	}
-};
-
-// tests a static value against testval.
-class staticeqtest : public pcimtest {
-public:
-	staticeqtest(double testval=0, int testvar=0) : pcimtest() {
-		v = testvar; theta=testval;
-	};
-	virtual ~staticeqtest() {} ;
-	virtual void print(std::ostream &os) const {
-		os << "svar(" << v << ") == " << theta;
-	}
-	virtual void print(std::ostream &os, const datainfo &info) const {
-		os << info.svarnames[v] << " == " << theta;
-	}
-	virtual void chop(const vartrajrange &in,
-			std::vector<vartrajrange> &outtrue,
-			std::vector<vartrajrange> &outfalse) const {
-		if (in.tr->sx[v]==theta) outtrue.emplace_back(in);
-		else outfalse.emplace_back(in);
-	}
-	virtual bool eval(Trajectory &tr, eventtype event, double t) const {
-		return tr.sx[v]==theta;
-	}
-	virtual bool eval(Trajectory &tr, eventtype event, double t, double &until) const {
-		until = std::numeric_limits<double>::infinity();
-		return tr.sx[v]>=theta;
-	}
-private:
-	int v;
-	double theta;
-private:
-	friend class boost::serialization::access;
-	template<typename Ar>
-	void serialize(Ar &ar, const unsigned int ver) {
-		ar & BOOST_SERIALIZATION_BASE_OBJECT_NVP(pcimtest);
-		ar & BOOST_SERIALIZATION_NVP(v) & BOOST_SERIALIZATION_NVP(theta);
-	}
-};
-
-
 class pcim {
 public:
 	typedef double wtT;
@@ -920,7 +746,7 @@ public:
 	}
 
 	// returns relevant leaves in ret and sum as return value
-	double getrate(const Trajectory &tr, double t, double &until, std::map<eventtype, const pcim *, comparator> &ret, const std::vector<int> &states) const;
+	double getrate(const Trajectory &tr, double t, double &until, std::map<eventtype, const pcim *, eventcomp> &ret, const std::vector<int> &states) const;
 	// returns new time and sets var and val to the variable and its value
 	double getevent(const Trajectory &tr, double &t, double expsamp, double unisamp, double normsamp,
 					int &var, int &state, double maxt, const std::vector<int> &states) const;
@@ -1026,8 +852,6 @@ private:
 	void featurenames(std::vector<std::string> &ret, std::string prefix) const;
 	std::array<std::string,nleaffeat> getleaffeaturenames() const;
 
-	void calcxxinvsqrt(const ss &d);
-
 	friend class boost::serialization::access;
 
 	template<typename Ar>
@@ -1047,7 +871,6 @@ private:
 		ar & BOOST_SERIALIZATION_NVP(test);
 		ar & BOOST_SERIALIZATION_NVP(ttree);
 		ar & BOOST_SERIALIZATION_NVP(ftree);
-		calcxxinvsqrt(stats);
 	}
 	BOOST_SERIALIZATION_SPLIT_MEMBER()
 };
@@ -1060,8 +883,6 @@ BOOST_CLASS_EXPORT_KEY(varstattest<counttest>)
 BOOST_CLASS_EXPORT_KEY(counteventtest)
 BOOST_CLASS_EXPORT_KEY(eventstattest<counteventtest>)
 BOOST_CLASS_EXPORT_KEY(vartest)
-BOOST_CLASS_EXPORT_KEY(staticgreqtest)
-BOOST_CLASS_EXPORT_KEY(staticeqtest)
 BOOST_CLASS_EXPORT_KEY(pcim)
 BOOST_SERIALIZATION_SHARED_PTR(pcimtest)
 BOOST_SERIALIZATION_SHARED_PTR(pcim)
