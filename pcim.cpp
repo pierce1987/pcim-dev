@@ -7,11 +7,11 @@
 
 using namespace std;
 
-inline vector<vartrajrange> torange(const vector<ctbn::Trajectory> &data, const vector<int> states) {
+inline vector<vartrajrange> torange(const vector<ctbn::Trajectory> &data, const ctbn::Context &contexts) {
 	vector<vartrajrange> ret;
 	if (data.empty()) return ret;
 	int nv = data[0].GetTraj().size();
-	for(auto &x : data) for(int v=0;v<nv;v++) for(int s=0;s<states[v];s++)
+	for(auto &x : data) for(int v=0;v<nv;v++) for(int s=0;s<contexts.Cardinality(v);s++)
 		ret.emplace_back(&x,eventtype(v,s));
 	return ret;
 }
@@ -19,8 +19,8 @@ inline vector<vartrajrange> torange(const vector<ctbn::Trajectory> &data, const 
 pcim::pcim(const vector<ctbn::Trajectory> &data,
 		const vector<shptr<pcimtest>> &tests,
 		const pcimparams &params,
-		const vector<int> &states) {
-	const vector<vartrajrange> &d = torange(data, states);
+		const ctbn::Context &contexts) {
+	const vector<vartrajrange> &d = torange(data, contexts);
 	ss s = suffstats(d);
 	globalm = data.size();
 	build(d,s,tests,score(s,params),params);
@@ -31,12 +31,13 @@ pcim::ss pcim::suffstats(const std::vector<vartrajrange> &data) {
 	ss ret;
 	ret.n=0.0;
 	ret.t=0.0;
+
 	for(const auto &x : data) {
 		ret.t += x.range.second-x.range.first;
 		const ctbn::VarTrajectory &vtr = (*(x.tr)).GetTraj().find(x.event.var)->second;
 		auto i0 = vtr.upper_bound(x.range.first);
 		auto i1 = vtr.upper_bound(x.range.second);
-		//ret.n += distance(i0,i1);
+		//ret.n += distance(i0,i1);		
 		for(auto i = i0;i!=i1;++i) {
 			if(i->second == x.event.state)
 				ret.n++;
@@ -138,19 +139,19 @@ void pcim::build(const vector<vartrajrange> &data, const ss &s,
 }
 
 double pcim::getevent(const ctbn::Trajectory &tr, double &t, double expsamp, double unisamp,
-		double normsamp, int &var, int &state, double maxt, const vector<int> &states) const {
+		double normsamp, int &var, int &state, double maxt, const ctbn::Context &contexts) const {
 	//cout << "-----" << endl;
 	//tr.print(cout); cout << endl;
 	//cout << t << " w/ " << expsamp << endl;
 	double until;
 	map<eventtype, const pcim *, eventcomp> leaves;
-	double r = getrate(tr,t,until,leaves,states);
+	double r = getrate(tr,t,until,leaves,contexts);
 	while(expsamp>(until-t)*r) {
 		expsamp -= (until-t)*r;
 		//cout << r << " until " << until << " (" << expsamp << ")" << endl;
 		if (until>maxt) return maxt;
 		t = until;
-		r = getrate(tr,t,until,leaves,states);
+		r = getrate(tr,t,until,leaves,contexts);
 	}
 	//cout << r << " through " << t+expsamp/r << " [" << until << "]" << endl;
 	var = leaves.size()-1;//?
@@ -162,11 +163,11 @@ double pcim::getevent(const ctbn::Trajectory &tr, double &t, double expsamp, dou
 }
 
 double pcim::getrate(const ctbn::Trajectory &tr, double t, double &until,
-			map<eventtype, const pcim *, eventcomp> &ret, const vector<int> &states) const {
+			map<eventtype, const pcim *, eventcomp> &ret, const ctbn::Context &contexts) const {
 	until = numeric_limits<double>::infinity();
 	double r = 0.0;
-	for(int i=0;i<states.size();i++)
-		for(int s=0; s<states[i]; s++){
+	for(int i=0;i<contexts.VarList().size();i++)
+		for(int s=0; s<contexts.Cardinality(i); s++){
 			r += getratevar(tr,i,s,t,until,ret[eventtype(i,s)]);
 		}
 	return r;

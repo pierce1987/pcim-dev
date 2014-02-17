@@ -26,6 +26,14 @@ Trajectory::Trajectory() {
 	ts = te = 0;
 }
 
+Trajectory::Trajectory(int nvar) {
+	for(int i = 0; i < nvar; i++)
+	{
+		traj.insert(make_pair(i,VarTrajectory()));
+	}
+	ts = te = 0;
+}
+
 Trajectory::~Trajectory() {
 }
 

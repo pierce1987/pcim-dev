@@ -441,7 +441,7 @@ private:
 class varcounttest : public varstattest<varcounttest> {
 public:
 	varcounttest(int thresh=0, int testvar=0, double lag0=0, double lag1=1, int teststate = -1)
-			: varstattest<varcounttest>(testvar,lag0,lag1, teststate) { theta=thresh; }
+			: varstattest<varcounttest>(testvar,lag0,lag1,teststate) { theta=thresh; }
 	virtual ~varcounttest() {}
 	virtual void print(std::ostream &os) const {
 		os << "# " << v << " in [" << maxlag << ',' << minlag << ") >= "
@@ -484,7 +484,7 @@ public:
 			: varstattest<eventcounttest>(testvar,lag0,lag1,teststate) { theta=thresh;}
 	virtual ~eventcounttest() {}
 	virtual void print(std::ostream &os) const {
-		os << "# " << v << " in [" << maxlag << ',' << minlag << ") >= "
+		os << "# (" << v <<","<<s<<")"<< " in [" << maxlag << ',' << minlag << ") >= "
 				<< theta;
 	}
 	virtual void print(std::ostream &os, const datainfo &info) const {
@@ -587,7 +587,7 @@ public:
 	}
 
 	pcim(const std::vector<ctbn::Trajectory> &data, const std::vector<shptr<pcimtest>> &tests,
-		const pcimparams &params, const std::vector<int> &states);
+		const pcimparams &params, const ctbn::Context &contexts);
 
 	pcim(shptr<pcimtest> tst, 
 		shptr<pcim> truebranch, shptr<pcim> falsebranch)
@@ -605,7 +605,7 @@ public:
 	}
 
 	template<typename R>
-	double samplecomplete(ctbn::Trajectory &ret, double T, R &rand, std::vector<int> &states) const {
+	double samplecomplete(ctbn::Trajectory &ret, double T, R &rand, ctbn::Context &contexts) const {
 		double t=0.0;
 		int var;
 		int state;
@@ -613,7 +613,7 @@ public:
 		std::uniform_real_distribution<> unifdist(0.0,1.0);
 		std::normal_distribution<> normdist(0.0,1.0);
 		double lastt=t;
-		while((t = getevent(ret,lastt,expdist(rand),unifdist(rand),normdist(rand),var,state,T,states))<T) {
+		while((t = getevent(ret,lastt,expdist(rand),unifdist(rand),normdist(rand),var,state,T,contexts))<T) {
 			//ret[var].insert(t,state);
 			ret.AddTransition(var, t, state);
 			lastt = t;
@@ -622,24 +622,21 @@ public:
 	}
 
 	template<typename R>
-	ctbn::Trajectory sample(double T,int nvar,R &rand, std::vector<int> &states) const {
-		ctbn::Trajectory ret;
+	ctbn::Trajectory sample(double T,int nvar,R &rand, ctbn::Context &contexts) const {
+		ctbn::Trajectory ret(nvar);
 		if (T<0.0) return ret;
-		//for(int i=0;i<nvar;i++) {
-		//	ret[i].starttime() = 0.0;
-		//	ret[i].endtime() = T;
-		//}
+
 		ret.SetBeginTime(0.0);
 		ret.SetEndTime(T);
-		samplecomplete(ret,T,rand,states);
+		samplecomplete(ret,T,rand,contexts);
 		return ret;
 	}
 
 	// returns relevant leaves in ret and sum as return value
-	double getrate(const ctbn::Trajectory &tr, double t, double &until, std::map<eventtype, const pcim *, eventcomp> &ret, const std::vector<int> &states) const;
+	double getrate(const ctbn::Trajectory &tr, double t, double &until, std::map<eventtype, const pcim *, eventcomp> &ret, const ctbn::Context &contexts) const;
 	// returns new time and sets var and val to the variable and its value
 	double getevent(const ctbn::Trajectory &tr, double &t, double expsamp, double unisamp, double normsamp,
-					int &var, int &state, double maxt, const std::vector<int> &states) const;
+					int &var, int &state, double maxt, const ctbn::Context &contexts) const;
 
 	void print(std::ostream &os) const;
 	void print(std::ostream &os, const datainfo &info) const;

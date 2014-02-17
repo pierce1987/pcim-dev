@@ -27,22 +27,32 @@ int main(int argc, char **argv) {
 							new pcim(3.0,0.0,5.0),
 							new pcim(1.0,0.0,5.0))));
 */
-	pcim truemodel(new timetest(2,4,10),
+/*	pcim truemodel(new timetest(2,4,10),
+				new pcim(new varcounttest(1,0),new pcim(20.0),new pcim(0.01)),
+				new pcim(0.01));
+*/
+
+	pcim truemodel(new eventcounttest(1, 1, 0, 1, 2),
 				new pcim(20.0),
 				new pcim(0.01));
 	truemodel.print(cout); cout << endl;
 	random_device rd;
+
 	int nvar = 3;
-	int myints[] = {3,3,3};
-	vector<int> states (myints, myints + sizeof(myints)/sizeof(int));
+	//int myints[] = {3,3,3};
+	//vector<int> states (myints, myints + sizeof(myints)/sizeof(int));
 	ctbn::Context contexts;
+	contexts.AddVar(0, 3);
+	contexts.AddVar(1, 3);
+	contexts.AddVar(2, 3);
+
 	unsigned int seed = rd();
 	cout << "seed = " << seed << endl;
 	mt19937 randgen(seed);
 	vector<ctbn::Trajectory> data;
 
 	for(int i=0;i<nsamp;i++) {
-		ctbn::Trajectory tr = truemodel.sample(100.0,nvar,randgen,states);
+		ctbn::Trajectory tr = truemodel.sample(100.0,nvar,randgen,contexts);
 		//printtr(cout,tr);
 		data.push_back(tr);
 	}
@@ -67,10 +77,12 @@ int main(int argc, char **argv) {
 	tests.emplace_back(new timetest(15,30,60));
 	tests.emplace_back(new timetest(0,15,60));
 	tests.emplace_back(new timetest(0,45,60));
+	tests.emplace_back(new eventcounttest(1, 1, 0, 1, 2));
+	tests.emplace_back(new varcounttest(1,0));
 
 	pcim::pcimparams p(1,1,1.0/tests.size(),0,NPROC);
 
-	pcim model(data,tests,p,states);
+	pcim model(data,tests,p,contexts);
 	model.print(cout);
 	cout << endl;
 }

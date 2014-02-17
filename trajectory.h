@@ -61,6 +61,7 @@ enum EvidenceChangeEnum {
 class Trajectory {
 public:
 	Trajectory();
+	Trajectory(int nvar);
 	virtual ~Trajectory();
 
 	typedef std::map<int, VarTrajectory> ivmap;
