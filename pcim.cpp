@@ -7,16 +7,16 @@
 
 using namespace std;
 
-inline vector<vartrajrange> torange(const vector<Trajectory> &data, const vector<int> states) {
+inline vector<vartrajrange> torange(const vector<ctbn::Trajectory> &data, const vector<int> states) {
 	vector<vartrajrange> ret;
 	if (data.empty()) return ret;
-	int nv = data[0].size();
+	int nv = data[0].GetTraj().size();
 	for(auto &x : data) for(int v=0;v<nv;v++) for(int s=0;s<states[v];s++)
 		ret.emplace_back(&x,eventtype(v,s));
 	return ret;
 }
 
-pcim::pcim(const vector<Trajectory> &data,
+pcim::pcim(const vector<ctbn::Trajectory> &data,
 		const vector<shptr<pcimtest>> &tests,
 		const pcimparams &params,
 		const vector<int> &states) {
@@ -33,7 +33,7 @@ pcim::ss pcim::suffstats(const std::vector<vartrajrange> &data) {
 	ret.t=0.0;
 	for(const auto &x : data) {
 		ret.t += x.range.second-x.range.first;
-		const vartraj &vtr = (*(x.tr)).find(x.event.var)->second;
+		const ctbn::VarTrajectory &vtr = (*(x.tr)).GetTraj().find(x.event.var)->second;
 		auto i0 = vtr.upper_bound(x.range.first);
 		auto i1 = vtr.upper_bound(x.range.second);
 		//ret.n += distance(i0,i1);
@@ -132,12 +132,12 @@ void pcim::build(const vector<vartrajrange> &data, const ss &s,
 	} else {
 		ttree.reset();
 		ftree.reset();
-	}
+	}	
 	calcleaf(s,params);
 	stats = s;
 }
 
-double pcim::getevent(const Trajectory &tr, double &t, double expsamp, double unisamp,
+double pcim::getevent(const ctbn::Trajectory &tr, double &t, double expsamp, double unisamp,
 		double normsamp, int &var, int &state, double maxt, const vector<int> &states) const {
 	//cout << "-----" << endl;
 	//tr.print(cout); cout << endl;
@@ -161,18 +161,18 @@ double pcim::getevent(const Trajectory &tr, double &t, double expsamp, double un
 	return t+expsamp/r;//time of sampled event!!
 }
 
-double pcim::getrate(const Trajectory &tr, double t, double &until,
+double pcim::getrate(const ctbn::Trajectory &tr, double t, double &until,
 			map<eventtype, const pcim *, eventcomp> &ret, const vector<int> &states) const {
 	until = numeric_limits<double>::infinity();
 	double r = 0.0;
-	for(int i=0;i<tr.size();i++)
+	for(int i=0;i<states.size();i++)
 		for(int s=0; s<states[i]; s++){
 			r += getratevar(tr,i,s,t,until,ret[eventtype(i,s)]);
 		}
 	return r;
 }
 
-double pcim::getratevar(const Trajectory &tr, int var, int state, double t, double &until,
+double pcim::getratevar(const ctbn::Trajectory &tr, int var, int state, double t, double &until,
 			const pcim *&leaf) const {
 	if (!test) { leaf = this; return rate; }//reached leaf
 	double til;

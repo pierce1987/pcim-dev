@@ -4,7 +4,7 @@
 #include <string>
 #include <fstream>
 #include <sstream>
-#include "traj.h"
+#include "trajectory.h"
 #include <utility>
 #include <cmath>
 #include "serial.h"

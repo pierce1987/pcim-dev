@@ -35,18 +35,18 @@ int main(int argc, char **argv) {
 	int nvar = 3;
 	int myints[] = {3,3,3};
 	vector<int> states (myints, myints + sizeof(myints)/sizeof(int));
+	ctbn::Context contexts;
 	unsigned int seed = rd();
 	cout << "seed = " << seed << endl;
 	mt19937 randgen(seed);
-	vector<Trajectory> data;
+	vector<ctbn::Trajectory> data;
 
 	for(int i=0;i<nsamp;i++) {
-		Trajectory tr = truemodel.sample(100.0,nvar,randgen,states);
+		ctbn::Trajectory tr = truemodel.sample(100.0,nvar,randgen,states);
 		//printtr(cout,tr);
 		data.push_back(tr);
 	}
 	//for(auto &x : data) printtr(cout,x);
-
 	cout << "done sampling" << endl;
 
 	vector<shptr<pcimtest>> tests;

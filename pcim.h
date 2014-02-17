@@ -1,7 +1,7 @@
 #ifndef PCIM_H
 #define PCIM_H
 
-#include "traj.h"
+#include "trajectory.h"
 #include <memory>
 #include <iostream>
 #include <utility>
@@ -33,27 +33,27 @@ struct eventcomp{
 };
 
 struct vartrajrange {
-	vartrajrange(const Trajectory *traject, eventtype e, double t0, double t1) : range(t0,t1), tr(traject) {
+	vartrajrange(const ctbn::Trajectory *traject, eventtype e, double t0, double t1) : range(t0,t1), tr(traject) {
 		event = e;
 	}
 	vartrajrange(const vartrajrange &vtr, double t0, double t1) : range(t0,t1) {
 		tr = vtr.tr;
 		event = vtr.event;
 	}
-	vartrajrange(const Trajectory *traject, int v){
+	vartrajrange(const ctbn::Trajectory *traject, int v){
 		tr = traject;
 		event.var = v;
-		range.first = (*traject).find(v)->second.starttime(),
-		range.second = (*traject).find(v)->second.endtime();
+		range.first = (*traject).TimeBegin(),
+		range.second = (*traject).TimeEnd();
 		
 	}
-	vartrajrange(const Trajectory *traject, eventtype e){
+	vartrajrange(const ctbn::Trajectory *traject, eventtype e){
 		tr = traject;
 		event = e;
-		range.first = (*traject).find(e.var)->second.starttime(),
-		range.second = (*traject).find(e.var)->second.endtime();
+		range.first = (*traject).TimeBegin(),
+		range.second = (*traject).TimeEnd();
 	}
-	const Trajectory *tr;
+	const ctbn::Trajectory *tr;
 	eventtype event;
 	timerange range;
 };
@@ -67,10 +67,10 @@ public:
 	virtual void chop(const vartrajrange &in,
 			std::vector<vartrajrange> &outtrue,
 			std::vector<vartrajrange> &outfalse) const = 0;
-	virtual bool eval(const Trajectory &tr, eventtype event, double t) const {
+	virtual bool eval(const ctbn::Trajectory &tr, eventtype event, double t) const {
 		double toss; return eval(tr,event,t,toss);
 	}
-	virtual bool eval(const Trajectory &tr, eventtype event, double t, double &until) const = 0;
+	virtual bool eval(const ctbn::Trajectory &tr, eventtype event, double t, double &until) const = 0;
 private:
 	friend class boost::serialization::access;
 	template<typename Ar>
@@ -95,7 +95,7 @@ public:
 	virtual void chop(vartrajrange &in,
 			std::vector<vartrajrange> &outtrue,
 			std::vector<vartrajrange> &outfalse) const {
-		const vartraj &tr = (*(in.tr)).find(v==-1?in.event.var:v)->second;
+		const ctbn::VarTrajectory &tr = (*(in.tr)).GetTraj().find(v==-1?in.event.var:v)->second;
 		const auto e = tr.cend();
 		double t0 = in.range.first;
 		double tend = in.range.second;
@@ -125,16 +125,16 @@ public:
 			else outfalse.emplace_back(in,t0,tend);
 		}
 	}
-	virtual bool eval(const Trajectory &tr, eventtype event, double t) const {
-		const vartraj &vtr = tr.find(v==-1?event.var:v)->second;
+	virtual bool eval(const ctbn::Trajectory &tr, eventtype event, double t) const {
+		const ctbn::VarTrajectory &vtr = tr.GetTraj().find(v==-1?event.var:v)->second;
 		if (vtr.empty()) return 0 == state;
 		auto i0 = vtr.lower_bound(t);
 		if (i0==vtr.cend() || i0->first>t) --i0;
 		return (i0==vtr.cend() ? 0 : i0->second) == state;
 	}
 
-	virtual bool eval(const Trajectory &tr, eventtype event, double t, double &until) const {
-		const vartraj &vtr = tr.find(v==-1?event.var:v)->second;
+	virtual bool eval(const ctbn::Trajectory &tr, eventtype event, double t, double &until) const {
+		const ctbn::VarTrajectory &vtr = tr.GetTraj().find(v==-1?event.var:v)->second;
 		if (vtr.empty()) {
 			until = std::numeric_limits<double>::infinity();
 			return 0 == state;
@@ -275,7 +275,7 @@ public:
 		}
 	}
 		
-	virtual bool eval(const Trajectory &tr, eventtype event, double t) const {
+	virtual bool eval(const ctbn::Trajectory &tr, eventtype event, double t) const {
 		double temp;
 		double myt0 = breakup(t0,temp);
 		double myt1 = breakup(t1,temp);
@@ -286,7 +286,7 @@ public:
 		if (tmod<tmin || tmod>tmax) return myt0>myt1;
 		return myt1>myt0;
 	}
-	virtual bool eval(const Trajectory &tr, eventtype event, double t, double &until) const {
+	virtual bool eval(const ctbn::Trajectory &tr, eventtype event, double t, double &until) const {
 		double temp;
 		double myt0 = breakup(t0,temp);
 		double myt1 = breakup(t1,temp);
@@ -336,7 +336,7 @@ public:
 	virtual void chop(const vartrajrange &in,
 			std::vector<vartrajrange> &outtrue,
 			std::vector<vartrajrange> &outfalse) const {
-		const vartraj &tr = (*(in.tr)).find(v==-1?in.event.var:v)->second;
+		const ctbn::VarTrajectory &tr = (*(in.tr)).GetTraj().find(v==-1?in.event.var:v)->second;
 		const auto &e = tr.cend();
 		double t0 = in.range.first;
 		double tend = in.range.second;
@@ -352,6 +352,7 @@ public:
 				std::numeric_limits<double>::infinity() : i0->first+maxlag,
 						i1==e ?
 				std::numeric_limits<double>::infinity() : i1->first+minlag);
+
 			while (i0!=e && i0->first+maxlag<=t1) {
 				if(s == -1 || i0->second == s) stat.del(i0->first,i0->second);
 				++i0;
@@ -380,8 +381,8 @@ public:
 		}
 
 	}
-	virtual bool eval(const Trajectory &tr, eventtype event, double t) const {
-		const vartraj &vtr = tr.find(v==-1?event.var:v)->second;
+	virtual bool eval(const ctbn::Trajectory &tr, eventtype event, double t) const {
+		const ctbn::VarTrajectory &vtr = tr.GetTraj().find(v==-1?event.var:v)->second;
 		double tnext
 			= std::nextafter(tnext,std::numeric_limits<double>::infinity());
 		double t0 = tnext-maxlag;
@@ -398,8 +399,8 @@ public:
 		return static_cast<const D *>(this)->evalstat(stat);
 	}
 
-	virtual bool eval(const Trajectory &tr, eventtype event, double t, double &until) const {
-		const vartraj &vtr = tr.find(v==-1?event.var:v)->second;
+	virtual bool eval(const ctbn::Trajectory &tr, eventtype event, double t, double &until) const {
+		const ctbn::VarTrajectory &vtr = tr.GetTraj().find(v==-1?event.var:v)->second;
 		const auto &e = vtr.cend();
 		double tnext
 			= std::nextafter(t,std::numeric_limits<double>::infinity());
@@ -529,10 +530,10 @@ public:
 		if (in.event.var==v) outtrue.emplace_back(in);
 		else outfalse.emplace_back(in);
 	}
-	virtual bool eval(const Trajectory &tr, eventtype event, double t) const {
+	virtual bool eval(const ctbn::Trajectory &tr, eventtype event, double t) const {
 		return event.var==v;
 	}
-	virtual bool eval(const Trajectory &tr, eventtype event, double t, double &until) const {
+	virtual bool eval(const ctbn::Trajectory &tr, eventtype event, double t, double &until) const {
 		until = std::numeric_limits<double>::infinity();
 		return event.var==v;
 	}
@@ -585,7 +586,7 @@ public:
 	virtual ~pcim() {
 	}
 
-	pcim(const std::vector<Trajectory> &data, const std::vector<shptr<pcimtest>> &tests,
+	pcim(const std::vector<ctbn::Trajectory> &data, const std::vector<shptr<pcimtest>> &tests,
 		const pcimparams &params, const std::vector<int> &states);
 
 	pcim(shptr<pcimtest> tst, 
@@ -604,7 +605,7 @@ public:
 	}
 
 	template<typename R>
-	double samplecomplete(Trajectory &ret, double T, R &rand, std::vector<int> &states) const {
+	double samplecomplete(ctbn::Trajectory &ret, double T, R &rand, std::vector<int> &states) const {
 		double t=0.0;
 		int var;
 		int state;
@@ -613,28 +614,31 @@ public:
 		std::normal_distribution<> normdist(0.0,1.0);
 		double lastt=t;
 		while((t = getevent(ret,lastt,expdist(rand),unifdist(rand),normdist(rand),var,state,T,states))<T) {
-			ret[var].insert(t,state);
+			//ret[var].insert(t,state);
+			ret.AddTransition(var, t, state);
 			lastt = t;
 		}
 		return lastt;
 	}
 
 	template<typename R>
-	Trajectory sample(double T,int nvar,R &rand, std::vector<int> &states) const {
-		Trajectory ret;
+	ctbn::Trajectory sample(double T,int nvar,R &rand, std::vector<int> &states) const {
+		ctbn::Trajectory ret;
 		if (T<0.0) return ret;
-		for(int i=0;i<nvar;i++) {
-			ret[i].starttime() = 0.0;
-			ret[i].endtime() = T;
-		}
+		//for(int i=0;i<nvar;i++) {
+		//	ret[i].starttime() = 0.0;
+		//	ret[i].endtime() = T;
+		//}
+		ret.SetBeginTime(0.0);
+		ret.SetEndTime(T);
 		samplecomplete(ret,T,rand,states);
 		return ret;
 	}
 
 	// returns relevant leaves in ret and sum as return value
-	double getrate(const Trajectory &tr, double t, double &until, std::map<eventtype, const pcim *, eventcomp> &ret, const std::vector<int> &states) const;
+	double getrate(const ctbn::Trajectory &tr, double t, double &until, std::map<eventtype, const pcim *, eventcomp> &ret, const std::vector<int> &states) const;
 	// returns new time and sets var and val to the variable and its value
-	double getevent(const Trajectory &tr, double &t, double expsamp, double unisamp, double normsamp,
+	double getevent(const ctbn::Trajectory &tr, double &t, double expsamp, double unisamp, double normsamp,
 					int &var, int &state, double maxt, const std::vector<int> &states) const;
 
 	void print(std::ostream &os) const;
@@ -649,20 +653,20 @@ public:
 		featurenames(ret,"");
 		return ret;
 	}
-	std::vector<double> trajtofeatures(const Trajectory &tr) const {
+	std::vector<double> trajtofeatures(const ctbn::Trajectory &tr) const {
 		std::vector<double> ret;
 		std::vector<vartrajrange> vtr;
-		for(int v=0;v<tr.size();v++)
+		for(int v=0;v<tr.GetTraj().size();v++)
 			vtr.emplace_back(&tr,v);
 		trajtofeatures(std::vector<vartrajrange>{vtr},ret);
 		return ret;
 	}
-	double similarity(const Trajectory &tr1, const Trajectory &tr2) const {//measure similarity based on features
+	double similarity(const ctbn::Trajectory &tr1, const ctbn::Trajectory &tr2) const {//measure similarity based on features
 		std::vector<vartrajrange> vtr1;
-		for(int v=0;v<tr1.size();v++)
+		for(int v=0;v<tr1.GetTraj().size();v++)
 			vtr1.emplace_back(&tr1,v);
 		std::vector<vartrajrange> vtr2;
-		for(int v=0;v<tr2.size();v++)
+		for(int v=0;v<tr2.GetTraj().size();v++)
 			vtr2.emplace_back(&tr2,v);
 		return similarity(std::vector<vartrajrange>{vtr1},
 					std::vector<vartrajrange>{vtr2});
@@ -698,7 +702,7 @@ private:
 	static double score(const ss &d, const pcimparams &p);
 	void calcleaf(const ss &d, const pcimparams &p);
 
-	double getratevar(const Trajectory &tr, int var, int state, double t, double &until, const pcim *&leaf) const;
+	double getratevar(const ctbn::Trajectory &tr, int var, int state, double t, double &until, const pcim *&leaf) const;
 
 	void printhelp(std::ostream &os, int lvl, const datainfo *info=nullptr) const;
 	void todothelp(std::ostream &os, int par, bool istrue, int &nn, const datainfo &info) const;
