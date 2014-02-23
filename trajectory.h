@@ -69,7 +69,7 @@ public:
 	inline double TimeBegin() const { return ts; }
 	inline double TimeEnd() const { return te; }
 
-	const ivmap& GetTraj() const {return traj;}//reference?
+	const VarTrajectory& GetVarTraj(int var) const;
 
 	inline void SetBeginTime(double t) { ts = t; }
 	inline void SetEndTime(double t) { te = t; }
@@ -225,6 +225,8 @@ private:
 	double ts,te;
 
 	ivmap traj; 
+	
+	static const VarTrajectory blankvar;
 
 	int Value(const ivmap::const_iterator &vari,
 					double time, bool inclusive=true) const;

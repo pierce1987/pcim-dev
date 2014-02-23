@@ -37,6 +37,16 @@ Trajectory::Trajectory(int nvar) {
 Trajectory::~Trajectory() {
 }
 
+const VarTrajectory Trajectory::blankvar = VarTrajectory();
+
+const VarTrajectory& Trajectory::GetVarTraj(int var) const {
+	const VarTrajectory &tr = traj.find(var)->second;
+	if(!tr.size())
+		return blankvar;
+	else
+		return tr;
+}
+
 int Trajectory::Value(int varid, double time, bool inclusive) const {
 	if (time>te || (time==te && inclusive)) return -1;
 	if (time<ts || (time==ts && !inclusive)) return -1;

@@ -27,20 +27,19 @@ int main(int argc, char **argv) {
 							new pcim(3.0,0.0,5.0),
 							new pcim(1.0,0.0,5.0))));
 */
-/*	pcim truemodel(new timetest(2,4,10),
-				new pcim(new varcounttest(1,0),new pcim(20.0),new pcim(0.01)),
-				new pcim(0.01));
-*/
+	pcim truemodel(new timetest(1,4,5),
+				new pcim(new eventcounttest(1, 1, 0, 1, 2),new pcim(20.0),new pcim(1.15)),
+				new pcim(new varcounttest(1,0),new pcim(0.01),new pcim(1)));
 
-	pcim truemodel(new eventcounttest(1, 1, 0, 1, 2),
+
+/*	pcim truemodel(new eventcounttest(1, 1, 0, 1, 2),
 				new pcim(20.0),
-				new pcim(0.01));
+				new pcim(0.01));*/
 	truemodel.print(cout); cout << endl;
 	random_device rd;
 
 	int nvar = 3;
-	//int myints[] = {3,3,3};
-	//vector<int> states (myints, myints + sizeof(myints)/sizeof(int));
+
 	ctbn::Context contexts;
 	contexts.AddVar(0, 3);
 	contexts.AddVar(1, 3);
@@ -66,8 +65,6 @@ int main(int argc, char **argv) {
 			for(double t1=0.0;t1<t0;t1+=2.0) {
 				for(int i=1;i<3;i++)
 					tests.emplace_back(new varcounttest(i,v,t0,t1));
-				//for(double t=-0.5;t<=0.5;t+=0.5) 
-					//tests.emplace_back(new meantest(t,v,t0,t1));
 			}
 	}
 	tests.emplace_back(new timetest(1,4,5));

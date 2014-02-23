@@ -10,9 +10,9 @@ using namespace std;
 inline vector<vartrajrange> torange(const vector<ctbn::Trajectory> &data, const ctbn::Context &contexts) {
 	vector<vartrajrange> ret;
 	if (data.empty()) return ret;
-	int nv = data[0].GetTraj().size();
-	for(auto &x : data) for(int v=0;v<nv;v++) for(int s=0;s<contexts.Cardinality(v);s++)
-		ret.emplace_back(&x,eventtype(v,s));
+	//int nv = data[0].GetTraj().size();
+	for(auto &x : data) for(auto &p : contexts) for(int s=0;s<p.second;s++)
+		ret.emplace_back(&x,eventtype(p.first,s));
 	return ret;
 }
 
@@ -34,7 +34,7 @@ pcim::ss pcim::suffstats(const std::vector<vartrajrange> &data) {
 
 	for(const auto &x : data) {
 		ret.t += x.range.second-x.range.first;
-		const ctbn::VarTrajectory &vtr = (*(x.tr)).GetTraj().find(x.event.var)->second;
+		const ctbn::VarTrajectory &vtr = (*(x.tr)).GetVarTraj(x.event.var);
 		auto i0 = vtr.upper_bound(x.range.first);
 		auto i1 = vtr.upper_bound(x.range.second);
 		//ret.n += distance(i0,i1);		
@@ -225,89 +225,6 @@ void pcim::printhelp(ostream &os, int lvl, const datainfo *info) const {
 		ftree->printhelp(os,lvl+1,info);
 	}
 }
-
-void pcim::getleaffeature(const vector<vartrajrange> &tr, array<double,nleaffeat> &f) const {
-	ss d = suffstats(tr);
-//leaf features
-	f[0] = d.n - rate*d.t;
-
-/*
-	double N = 0.0, D = 0.0, E = 0.0, T = 0.0;
-	for(auto &x : tr) {
-		T += x.range.second-x.range.first;
-		const vartraj &vtr = (*(x.tr))[x.var];
-		auto i0 = vtr.upper_bound(x.range.first);
-		auto i1 = vtr.upper_bound(x.range.second);
-		for(auto i = i0;i!=i1;++i) {
-			D += i->second.v - mu;
-			E += (i->second.v - mu)*(i->second.v - mu);
-			N++;
-		}
-	}
-	f[0] = N-rate*T;
-	f[1] = D/sigma;
-	f[2] = E/(sigma*sigma) - N;
-*/
-}
-
-void pcim::featurenames(vector<string> &ret, string prefix) const {
-	if (!ttree) {
-		array<string,nleaffeat> ln = getleaffeaturenames();
-		for(auto &n : ln) ret.push_back(prefix+n);
-	} else {
-		ttree->featurenames(ret,prefix+"T");
-		ftree->featurenames(ret,prefix+"F");
-	}
-}
-
-array<string,pcim::nleaffeat> pcim::getleaffeaturenames() const {
-
-	return {"rate"};
-
-}
-
-
-
-void pcim::trajtofeatures(const vector<vartrajrange> &tr,
-				vector<double> &f) const {
-	constexpr double sqrt2 = std::sqrt(2.0);
-	if (!ttree) {
-		double w = sqrt(globalm/stats.n);
-		array<double,nleaffeat> lf;
-		getleaffeature(tr,lf);
-		//std::cout << "features for leaf (" << w << ',' << globalm << ',' << stats.n << "): " << lf[0] << ',' << lf[1] << ',' << lf[2] << std::endl;
-		for(int i=0;i<nleaffeat-1;i++)
-			f.push_back(w*lf[i]);
-		f.push_back(w/sqrt2*lf[nleaffeat-1]);
-	} else {
-		vector<vartrajrange> ttr,ftr;
-		for(auto &x : tr) test->chop(x,ttr,ftr);
-		ttree->trajtofeatures(ttr,f);
-		ftree->trajtofeatures(ftr,f);
-	}
-}
-
-double pcim::similarity(const vector<vartrajrange> &tr1,
-			const vector<vartrajrange> &tr2) const {
-	if (!ttree) {
-		double w = globalm/stats.n;
-		array<double,nleaffeat> lf1,lf2;
-		getleaffeature(tr1,lf1);
-		getleaffeature(tr2,lf2);
-		double ret = 0.0;
-		for(int i=0;i<nleaffeat-1;i++)
-			ret += lf1[i]*lf2[i];
-		ret += (lf1[nleaffeat-1]*lf2[nleaffeat-1])/2.0;
-		return ret*w;
-	} else {
-		vector<vartrajrange> ttr1,ftr1;
-		for(auto &x : tr1) test->chop(x,ttr1,ftr1);
-		vector<vartrajrange> ttr2,ftr2;
-		for(auto &x : tr2) test->chop(x,ttr2,ftr2);
-		return ttree->similarity(ttr1,ttr2) + ftree->similarity(ftr1,ftr2);
-	}
-}
-
 
 BOOST_CLASS_EXPORT_IMPLEMENT(pcimtest)
 BOOST_CLASS_EXPORT_IMPLEMENT(lasttest)

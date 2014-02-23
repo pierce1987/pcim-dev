@@ -95,7 +95,7 @@ public:
 	virtual void chop(vartrajrange &in,
 			std::vector<vartrajrange> &outtrue,
 			std::vector<vartrajrange> &outfalse) const {
-		const ctbn::VarTrajectory &tr = (*(in.tr)).GetTraj().find(v==-1?in.event.var:v)->second;
+		const ctbn::VarTrajectory &tr = (*(in.tr)).GetVarTraj(v==-1?in.event.var:v);
 		const auto e = tr.cend();
 		double t0 = in.range.first;
 		double tend = in.range.second;
@@ -126,7 +126,7 @@ public:
 		}
 	}
 	virtual bool eval(const ctbn::Trajectory &tr, eventtype event, double t) const {
-		const ctbn::VarTrajectory &vtr = tr.GetTraj().find(v==-1?event.var:v)->second;
+		const ctbn::VarTrajectory &vtr = tr.GetVarTraj(v==-1?event.var:v);
 		if (vtr.empty()) return 0 == state;
 		auto i0 = vtr.lower_bound(t);
 		if (i0==vtr.cend() || i0->first>t) --i0;
@@ -134,7 +134,7 @@ public:
 	}
 
 	virtual bool eval(const ctbn::Trajectory &tr, eventtype event, double t, double &until) const {
-		const ctbn::VarTrajectory &vtr = tr.GetTraj().find(v==-1?event.var:v)->second;
+		const ctbn::VarTrajectory &vtr = tr.GetVarTraj(v==-1?event.var:v);
 		if (vtr.empty()) {
 			until = std::numeric_limits<double>::infinity();
 			return 0 == state;
@@ -336,7 +336,7 @@ public:
 	virtual void chop(const vartrajrange &in,
 			std::vector<vartrajrange> &outtrue,
 			std::vector<vartrajrange> &outfalse) const {
-		const ctbn::VarTrajectory &tr = (*(in.tr)).GetTraj().find(v==-1?in.event.var:v)->second;
+		const ctbn::VarTrajectory &tr = (*(in.tr)).GetVarTraj(v==-1?in.event.var:v);
 		const auto &e = tr.cend();
 		double t0 = in.range.first;
 		double tend = in.range.second;
@@ -382,7 +382,7 @@ public:
 
 	}
 	virtual bool eval(const ctbn::Trajectory &tr, eventtype event, double t) const {
-		const ctbn::VarTrajectory &vtr = tr.GetTraj().find(v==-1?event.var:v)->second;
+		const ctbn::VarTrajectory &vtr = tr.GetVarTraj(v==-1?event.var:v);
 		double tnext
 			= std::nextafter(tnext,std::numeric_limits<double>::infinity());
 		double t0 = tnext-maxlag;
@@ -400,7 +400,7 @@ public:
 	}
 
 	virtual bool eval(const ctbn::Trajectory &tr, eventtype event, double t, double &until) const {
-		const ctbn::VarTrajectory &vtr = tr.GetTraj().find(v==-1?event.var:v)->second;
+		const ctbn::VarTrajectory &vtr = tr.GetVarTraj(v==-1?event.var:v);
 		const auto &e = vtr.cend();
 		double tnext
 			= std::nextafter(t,std::numeric_limits<double>::infinity());
@@ -614,7 +614,6 @@ public:
 		std::normal_distribution<> normdist(0.0,1.0);
 		double lastt=t;
 		while((t = getevent(ret,lastt,expdist(rand),unifdist(rand),normdist(rand),var,state,T,contexts))<T) {
-			//ret[var].insert(t,state);
 			ret.AddTransition(var, t, state);
 			lastt = t;
 		}
@@ -645,29 +644,7 @@ public:
 	void save(std::ostream &os) const;
 	void load(std::ostream &os);
 
-	std::vector<std::string> featurenames() const {
-		std::vector<std::string> ret;
-		featurenames(ret,"");
-		return ret;
-	}
-	std::vector<double> trajtofeatures(const ctbn::Trajectory &tr) const {
-		std::vector<double> ret;
-		std::vector<vartrajrange> vtr;
-		for(int v=0;v<tr.GetTraj().size();v++)
-			vtr.emplace_back(&tr,v);
-		trajtofeatures(std::vector<vartrajrange>{vtr},ret);
-		return ret;
-	}
-	double similarity(const ctbn::Trajectory &tr1, const ctbn::Trajectory &tr2) const {//measure similarity based on features
-		std::vector<vartrajrange> vtr1;
-		for(int v=0;v<tr1.GetTraj().size();v++)
-			vtr1.emplace_back(&tr1,v);
-		std::vector<vartrajrange> vtr2;
-		for(int v=0;v<tr2.GetTraj().size();v++)
-			vtr2.emplace_back(&tr2,v);
-		return similarity(std::vector<vartrajrange>{vtr1},
-					std::vector<vartrajrange>{vtr2});
-	}
+
 private:
 	class ss {
 	public:
@@ -717,15 +694,6 @@ private:
 			const pcimparams &params,
 			int procnum=0, int nproc=1) const;
 
-
-
-	void trajtofeatures(const std::vector<vartrajrange> &tr,
-				std::vector<double> &f) const;
-
-
-	double similarity(const std::vector<vartrajrange> &tr1,
-				const std::vector<vartrajrange> &tr2) const;
-
 	shptr<pcim> ftree,ttree;
 	shptr<pcimtest> test;
 	double rate;
@@ -733,11 +701,6 @@ private:
 	int globalm; // number of traj it was built from
 
 private:
-	void getleaffeature(const std::vector<vartrajrange> &tr,
-			std::array<double,nleaffeat> &f) const;
-
-	void featurenames(std::vector<std::string> &ret, std::string prefix) const;
-	std::array<std::string,nleaffeat> getleaffeaturenames() const;
 
 	friend class boost::serialization::access;
 
