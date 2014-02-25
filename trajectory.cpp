@@ -40,11 +40,8 @@ Trajectory::~Trajectory() {
 const VarTrajectory Trajectory::blankvar = VarTrajectory();
 
 const VarTrajectory& Trajectory::GetVarTraj(int var) const {
-	const VarTrajectory &tr = traj.find(var)->second;
-	if(!tr.size())
-		return blankvar;
-	else
-		return tr;
+	ivmap::const_iterator it = traj.find(var);
+	return it != traj.end()? it->second : blankvar;
 }
 
 int Trajectory::Value(int varid, double time, bool inclusive) const {

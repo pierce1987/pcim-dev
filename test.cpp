@@ -1,4 +1,5 @@
 #include "pcim.h"
+#include "transfer.h"
 #include <iostream>
 #include <vector>
 #include <random>
@@ -15,7 +16,7 @@ using namespace std;
 
 int main(int argc, char **argv) {
 	int nsamp = argc>1 ? atoi(argv[1]) : 10;
-	cout << nsamp << endl;
+	//cout << nsamp << endl;
 /*
 	pcim truemodel(new counttest(2,0,0.0,2.0),
 					new pcim(new counttest(2,-1,2.0,4.0),
@@ -26,15 +27,15 @@ int main(int argc, char **argv) {
 						new pcim(new vartest(1),
 							new pcim(3.0,0.0,5.0),
 							new pcim(1.0,0.0,5.0))));
-*/
+
 	pcim truemodel(new timetest(1,4,5),
 				new pcim(new eventcounttest(1, 1, 0, 1, 2),new pcim(20.0),new pcim(1.15)),
 				new pcim(new varcounttest(1,0),new pcim(0.01),new pcim(1)));
 
-
+*/
 /*	pcim truemodel(new eventcounttest(1, 1, 0, 1, 2),
 				new pcim(20.0),
-				new pcim(0.01));*/
+				new pcim(0.01));
 	truemodel.print(cout); cout << endl;
 	random_device rd;
 
@@ -82,4 +83,14 @@ int main(int argc, char **argv) {
 	pcim model(data,tests,p,contexts);
 	model.print(cout);
 	cout << endl;
+*/
+
+	////////Given a ctbndyn as input, generate a pcim
+	int NumofNodes;
+	cin>>NumofNodes;
+
+	pcim * PCIMfromCTBN = transfer(NumofNodes, 1);
+
+	PCIMfromCTBN->print(cout);
+
 }

@@ -92,7 +92,7 @@ public:
 	virtual void print(std::ostream &os, const datainfo &info) const {
 		os << "most recent state for " << info.dvarname(v) << " == " << state;
 	}
-	virtual void chop(vartrajrange &in,
+	virtual void chop(const vartrajrange &in,
 			std::vector<vartrajrange> &outtrue,
 			std::vector<vartrajrange> &outfalse) const {
 		const ctbn::VarTrajectory &tr = (*(in.tr)).GetVarTraj(v==-1?in.event.var:v);
@@ -548,6 +548,41 @@ private:
 	}
 };
 
+// test if current event == testevent
+class eventtest : public pcimtest {
+public:
+	eventtest(int testvar=0, int teststate=0) : pcimtest() { v = testvar; s = teststate;};
+	virtual ~eventtest() {} ;
+	virtual void print(std::ostream &os) const { os << "event == (" << v <<"," << s <<")"; }
+	virtual void print(std::ostream &os, const datainfo &info) const {
+		os << "E == (" << info.dvarname(v)<<","<<info.dvarname(s)<<")";
+	}
+	virtual void chop(const vartrajrange &in,
+			std::vector<vartrajrange> &outtrue,
+			std::vector<vartrajrange> &outfalse) const {
+		if (in.event.var == v && in.event.state==s) outtrue.emplace_back(in);
+		else outfalse.emplace_back(in);
+	}
+	virtual bool eval(const ctbn::Trajectory &tr, eventtype event, double t) const {
+		return (event.var == v && event.state==s);
+	}
+	virtual bool eval(const ctbn::Trajectory &tr, eventtype event, double t, double &until) const {
+		until = std::numeric_limits<double>::infinity();
+		return (event.var == v && event.state==s);
+	}
+private:
+	int v;
+	int s;
+private:
+	friend class boost::serialization::access;
+	template<typename Ar>
+	void serialize(Ar &ar, const unsigned int ver) {
+		ar & BOOST_SERIALIZATION_BASE_OBJECT_NVP(pcimtest);
+		ar & BOOST_SERIALIZATION_NVP(v);
+		ar & BOOST_SERIALIZATION_NVP(s);
+	}
+};
+
 class pcim {
 public:
 	typedef double wtT;
@@ -733,6 +768,7 @@ BOOST_CLASS_EXPORT_KEY(varstattest<varcounttest>)
 BOOST_CLASS_EXPORT_KEY(eventcounttest)
 BOOST_CLASS_EXPORT_KEY(varstattest<eventcounttest>)
 BOOST_CLASS_EXPORT_KEY(vartest)
+BOOST_CLASS_EXPORT_KEY(eventtest)
 BOOST_CLASS_EXPORT_KEY(pcim)
 BOOST_SERIALIZATION_SHARED_PTR(pcimtest)
 BOOST_SERIALIZATION_SHARED_PTR(pcim)
