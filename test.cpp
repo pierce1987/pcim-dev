@@ -86,11 +86,17 @@ int main(int argc, char **argv) {
 */
 
 	////////Given a ctbndyn as input, generate a pcim
-	int NumofNodes;
-	cin>>NumofNodes;
-
-	pcim * PCIMfromCTBN = transfer(NumofNodes, 1);
+	pcim * PCIMfromCTBN = CTBNtransfer(cin);
 
 	PCIMfromCTBN->print(cout);
 
+/*or read from a file
+	ifstream fs;
+	fs.open("1.txt");
+	pcim * PCIMfromCTBN = CTBNtransfer(fs);
+
+	PCIMfromCTBN->print(cout);
+
+	fs.close();
+*/
 }

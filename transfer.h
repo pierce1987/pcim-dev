@@ -2,17 +2,12 @@
 
 using namespace std;
 
-pcim* rwogenerator(int var, int state, int ds);
-
-pcim* matrixgenerator(int var, int state, int ds);
-
-pcim* nodegenerator(int var, int parentindex, int state, ctbn::Context &contexts, int ds);
-
-pcim* transfer(int NumofNodes, int count);
-
+pcim* CTBNtransfer(istream& is);
 
 //on the CTBN side. use the following code after a ctbndyn of type CTBNDyn
-/* cout<<ctbndyn.NumofNodes()<<endl;
+/* 
+
+cout<<ctbndyn.NumofNodes()<<endl;
 for(int p = 0; p<ctbndyn.NumofNodes(); p++){
 
 	const Dynamics *bnode = ctbndyn.Node(p);
