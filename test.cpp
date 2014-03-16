@@ -1,4 +1,5 @@
 #include "pcim.h"
+#include "transfer.h"
 #include <iostream>
 #include <vector>
 #include <random>
@@ -15,7 +16,7 @@ using namespace std;
 
 int main(int argc, char **argv) {
 	int nsamp = argc>1 ? atoi(argv[1]) : 10;
-	cout << nsamp << endl;
+	//cout << nsamp << endl;
 /*
 	pcim truemodel(new counttest(2,0,0.0,2.0),
 					new pcim(new counttest(2,-1,2.0,4.0),
@@ -26,25 +27,36 @@ int main(int argc, char **argv) {
 						new pcim(new vartest(1),
 							new pcim(3.0,0.0,5.0),
 							new pcim(1.0,0.0,5.0))));
+
+	pcim truemodel(new timetest(1,4,5),
+				new pcim(new eventcounttest(1, 1, 0, 1, 2),new pcim(20.0),new pcim(1.15)),
+				new pcim(new varcounttest(1,0),new pcim(0.01),new pcim(1)));
+
 */
-	pcim truemodel(new timetest(2,4,10),
-				new pcim(20.0,0.0,1.0),
-				new pcim(0.01,10.0,1.0));
+/*	pcim truemodel(new eventcounttest(1, 1, 0, 1, 2),
+				new pcim(20.0),
+				new pcim(0.01));
 	truemodel.print(cout); cout << endl;
 	random_device rd;
+
 	int nvar = 3;
+
+	ctbn::Context contexts;
+	contexts.AddVar(0, 3);
+	contexts.AddVar(1, 3);
+	contexts.AddVar(2, 3);
+
 	unsigned int seed = rd();
 	cout << "seed = " << seed << endl;
 	mt19937 randgen(seed);
-	vector<traj> data;
+	vector<ctbn::Trajectory> data;
 
 	for(int i=0;i<nsamp;i++) {
-		traj tr = truemodel.sample(100.0,nvar,randgen);
+		ctbn::Trajectory tr = truemodel.sample(100.0,nvar,randgen,contexts);
 		//printtr(cout,tr);
 		data.push_back(tr);
 	}
 	//for(auto &x : data) printtr(cout,x);
-
 	cout << "done sampling" << endl;
 
 	vector<shptr<pcimtest>> tests;
@@ -53,9 +65,7 @@ int main(int argc, char **argv) {
 		for(double t0=0.0;t0<=4.0;t0+=2.0)
 			for(double t1=0.0;t1<t0;t1+=2.0) {
 				for(int i=1;i<3;i++)
-					tests.emplace_back(new counttest(i,v,t0,t1));
-				for(double t=-0.5;t<=0.5;t+=0.5) 
-					tests.emplace_back(new meantest(t,v,t0,t1));
+					tests.emplace_back(new varcounttest(i,v,t0,t1));
 			}
 	}
 	tests.emplace_back(new timetest(1,4,5));
@@ -65,10 +75,28 @@ int main(int argc, char **argv) {
 	tests.emplace_back(new timetest(15,30,60));
 	tests.emplace_back(new timetest(0,15,60));
 	tests.emplace_back(new timetest(0,45,60));
+	tests.emplace_back(new eventcounttest(1, 1, 0, 1, 2));
+	tests.emplace_back(new varcounttest(1,0));
 
-	pcim::pcimparams p(1,1,1.0/tests.size(),0.0,1.0,2.0,2.0,0,NPROC);
+	pcim::pcimparams p(1,1,1.0/tests.size(),0,NPROC);
 
-	pcim model(data,tests,p);
+	pcim model(data,tests,p,contexts);
 	model.print(cout);
 	cout << endl;
+*/
+
+	////////Given a ctbndyn as input, generate a pcim
+	pcim * PCIMfromCTBN = CTBNtransfer(cin);
+
+	PCIMfromCTBN->print(cout);
+
+/*or read from a file
+	ifstream fs;
+	fs.open("1.txt");
+	pcim * PCIMfromCTBN = CTBNtransfer(fs);
+
+	PCIMfromCTBN->print(cout);
+
+	fs.close();
+*/
 }

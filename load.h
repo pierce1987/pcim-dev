@@ -4,12 +4,12 @@
 #include <string>
 #include <fstream>
 #include <sstream>
-#include "traj.h"
+#include "trajectory.h"
 #include <utility>
 #include <cmath>
 #include "serial.h"
 #include <boost/regex.hpp>
-
+/*
 inline std::vector<std::string> strsplit(const std::string &s, char delim) {
 	std::vector<std::string> ret;
 	std::istringstream ss(s);
@@ -18,7 +18,7 @@ inline std::vector<std::string> strsplit(const std::string &s, char delim) {
 	return ret;
 }
 
-inline void akiloadep(std::string fn, traj &tr, int nsvar, int ndvar,
+inline void akiloadep(std::string fn, Trajectory &tr, int nsvar, int ndvar,
 			int wtvarnum, const std::set<int> &tonormbywt,
 			const std::map<int,int> *smap=nullptr,
 			const std::map<int,int> *dmap=nullptr) {
@@ -80,7 +80,7 @@ inline void akiloadep(std::string fn, traj &tr, int nsvar, int ndvar,
 		vtr.endtime() = maxtime;
 	}
 }
-
+*/
 class normmethod {
 public:
 	virtual ~normmethod() { }
@@ -98,7 +98,7 @@ private:
 	}
 };
 BOOST_CLASS_EXPORT_KEY(normmethod)
-
+/*
 class linearnorm : public normmethod {
 public:
 	linearnorm(double mu=0.0, double std=1.0) : m(mu), s(std) {}
@@ -206,7 +206,7 @@ private:
 	}
 };
 BOOST_CLASS_EXPORT_KEY(lookupnorm)
-
+*/
 typedef std::vector<shptr<normmethod>> normmap;
 
 struct datainfo {
@@ -242,17 +242,17 @@ private:
 	BOOST_SERIALIZATION_SPLIT_MEMBER()
 };
 BOOST_CLASS_EXPORT_KEY(datainfo)
-
+/*
 struct dataset {
 	// maps static/dyn var id to normalization method (already applied)
 	datainfo info;
 	std::vector<traj> ds;
 
 	void applynorms(int agevar, int sexvar) {
-		for(traj &tr : ds) normalize(tr,agevar,sexvar);
+		for(Trajectory&tr : ds) normalize(tr,agevar,sexvar);
 	}
 
-	void normalize(traj &tr, int agevar, int sexvar) const {
+	void normalize(Trajectory&tr, int agevar, int sexvar) const {
 		double age = tr.sx[agevar];
 		bool ismale = tr.sx[sexvar]>0.5;
 		for(int i=0;i<tr.sx.size();i++) {
@@ -264,7 +264,7 @@ struct dataset {
 				pt.second.v = norm->normalize(pt.second.v,age,ismale);
 		}
 	}
-	void unnormalize(traj &tr, int agevar, int sexvar) const {
+	void unnormalize(Trajectory&tr, int agevar, int sexvar) const {
 		double age = tr.sx[agevar];
 		bool ismale = tr.sx[sexvar]>0.5;
 		for(int i=0;i<tr.sx.size();i++) {
@@ -600,5 +600,5 @@ inline void akiloadgiveninfo(std::string dir, dataset &ds, int n, int skip=0) {
 	}
 	finishload(dir,master,ds,n,skip,-1,&smap,&dmap);
 }
-
+*/
 #endif
