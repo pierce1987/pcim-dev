@@ -1,5 +1,6 @@
 #include "pcim.h"
 #include "transfer.h"
+#include "gibbssampler.h"
 #include <iostream>
 #include <vector>
 #include <random>
@@ -16,6 +17,7 @@ using namespace std;
 
 int main(int argc, char **argv) {
 	int nsamp = argc>1 ? atoi(argv[1]) : 10;
+	nsamp = 1;
 	//cout << nsamp << endl;
 /*
 	pcim truemodel(new counttest(2,0,0.0,2.0),
@@ -33,8 +35,8 @@ int main(int argc, char **argv) {
 				new pcim(new varcounttest(1,0),new pcim(0.01),new pcim(1)));
 
 */
-/*	pcim truemodel(new eventcounttest(1, 1, 0, 1, 2),
-				new pcim(20.0),
+	pcim truemodel(new timetest(1,4,5),
+				new pcim(2.0),
 				new pcim(0.01));
 	truemodel.print(cout); cout << endl;
 	random_device rd;
@@ -42,9 +44,9 @@ int main(int argc, char **argv) {
 	int nvar = 3;
 
 	ctbn::Context contexts;
-	contexts.AddVar(0, 3);
-	contexts.AddVar(1, 3);
-	contexts.AddVar(2, 3);
+	contexts.AddVar(0, 1);
+	contexts.AddVar(1, 1);
+	contexts.AddVar(2, 1);
 
 	unsigned int seed = rd();
 	cout << "seed = " << seed << endl;
@@ -52,8 +54,8 @@ int main(int argc, char **argv) {
 	vector<ctbn::Trajectory> data;
 
 	for(int i=0;i<nsamp;i++) {
-		ctbn::Trajectory tr = truemodel.sample(100.0,nvar,randgen,contexts);
-		//printtr(cout,tr);
+		ctbn::Trajectory tr = truemodel.sample(15.0,nvar,randgen,contexts);
+		printtr(cout,tr,3);
 		data.push_back(tr);
 	}
 	//for(auto &x : data) printtr(cout,x);
@@ -83,14 +85,32 @@ int main(int argc, char **argv) {
 	pcim model(data,tests,p,contexts);
 	model.print(cout);
 	cout << endl;
-*/
+
+//testing sampler
+	//let data[0] be the evidence, model be the pcim model
+	data[0].AddTransition(0, 2.0, -1);//stopped observing
+	data[0].AddTransition(0, 4.0, -2);//starts observing again
+	data[0].AddTransition(0, 10.0, -1);//stopped observing
+	data[0].AddTransition(0, 12.0, -2);//starts observing again
+	data[0].AddTransition(1, 5.0, -1);//stopped observing
+	data[0].AddTransition(1, 7.0, -2);//starts observing again
+
+	vector<ctbn::Trajectory> t;
+	vector<double> w;
+	GibbsAuxSampler sampler(&model, &data[0], &contexts, 0);
+	sampler.SampleTrajectories(t,w,1,randgen);
+
+
+	//printtr(cout,sampler.tr,3);
+
+
 
 	////////Given a ctbndyn as input, generate a pcim
-	pcim * PCIMfromCTBN = CTBNtransfer(cin);
+/*	pcim * PCIMfromCTBN = CTBNtransfer(cin);
 
 	PCIMfromCTBN->print(cout);
 
-/*or read from a file
+//or read from a file
 	ifstream fs;
 	fs.open("1.txt");
 	pcim * PCIMfromCTBN = CTBNtransfer(fs);

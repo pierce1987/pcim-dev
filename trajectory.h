@@ -25,6 +25,7 @@
 #include "context.h"
 #include <iostream>
 
+
 // This file describes a Trajectory... a mapping over the values
 // of variables over time.  A Trajectory might be incomplete in that
 // the values of certain variables are not known at certain times (or
@@ -240,7 +241,7 @@ private:
 
 //std::ostream &operator<<(std::ostream &os, const Trajectory &tr);
 //std::istream &operator>>(std::istream &is, Trajectory &tr);
-
+void printtr(std::ostream &os, const Trajectory &tr, int nvar, bool incolumns=true, bool ishrs=false);
 } // end of ctbn namespace
 
 #endif
