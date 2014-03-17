@@ -162,14 +162,38 @@ double pcim::getevent(const ctbn::Trajectory &tr, double &t, double expsamp, dou
 	return t+expsamp/r;//time of sampled event!!
 }
 
+double pcim::geteventaux(const ctbn::Trajectory &tr, double &t, double expsamp, double unisamp,
+		double normsamp, int &var, int &state, double maxt, const ctbn::Context &contexts, double alpha) const {
+
+	double until;
+	map<eventtype, const pcim *, eventcomp> leaves;
+	double r = getrate(tr,t,until,leaves,contexts);
+	r = alpha - r;
+	while(expsamp>(until-t)*r) {
+		expsamp -= (until-t)*r;
+		if (until>maxt) return maxt;
+		t = until;
+		r = getrate(tr,t,until,leaves,contexts);
+		r = alpha -r;
+	}
+	var = leaves.size()-1;
+	for(map<eventtype, const pcim *>::iterator it = leaves.begin();it!=leaves.end();it++) {
+		unisamp -= it->second->rate/r;
+		if (unisamp<=0) { var = it->first.var; state = it->first.state; break; } //var and state of sampled event!!
+	}
+	return t+expsamp/r;//time of sampled event!!
+}
+
 double pcim::getrate(const ctbn::Trajectory &tr, double t, double &until,
 			map<eventtype, const pcim *, eventcomp> &ret, const ctbn::Context &contexts) const {
 	until = numeric_limits<double>::infinity();
 	double r = 0.0;
-	for(int i=0;i<contexts.VarList().size();i++)
-		for(int s=0; s<contexts.Cardinality(i); s++){
-			r += getratevar(tr,i,s,t,until,ret[eventtype(i,s)]);
+	for(int i=0;i<contexts.VarList().size();i++){
+		int varid = contexts.VarList()[i]; //fixed 3/17/14 
+		for(int s=0; s<contexts.Cardinality(varid); s++){
+			r += getratevar(tr,varid,s,t,until,ret[eventtype(varid,s)]);
 		}
+	}
 	return r;
 }
 

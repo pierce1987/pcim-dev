@@ -671,6 +671,9 @@ public:
 	// returns new time and sets var and val to the variable and its value
 	double getevent(const ctbn::Trajectory &tr, double &t, double expsamp, double unisamp, double normsamp,
 					int &var, int &state, double maxt, const ctbn::Context &contexts) const;
+	// returns new time and sets var and val to the variable and its value
+	double geteventaux(const ctbn::Trajectory &tr, double &t, double expsamp, double unisamp, double normsamp,
+					int &var, int &state, double maxt, const ctbn::Context &contexts, double alpha) const;
 
 	void print(std::ostream &os) const;
 	void print(std::ostream &os, const datainfo &info) const;

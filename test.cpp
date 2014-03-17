@@ -92,8 +92,8 @@ int main(int argc, char **argv) {
 	data[0].AddTransition(0, 4.0, -2);//starts observing again
 	data[0].AddTransition(0, 10.0, -1);//stopped observing
 	data[0].AddTransition(0, 12.0, -2);//starts observing again
-	data[0].AddTransition(1, 5.0, -1);//stopped observing
-	data[0].AddTransition(1, 7.0, -2);//starts observing again
+	data[0].AddTransition(1, 2.1, -1);//stopped observing
+	data[0].AddTransition(1, 8.1, -2);//starts observing again
 
 	vector<ctbn::Trajectory> t;
 	vector<double> w;

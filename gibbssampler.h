@@ -3,6 +3,10 @@
 
 #include "pcim.h"
 
+using namespace std;
+
+bool IsInUnobserved(std::vector<double> &starts, std::vector<double> &ends, double t);
+
 class GibbsAuxSampler{
 
 public:
@@ -16,14 +20,18 @@ public:
 	void SampleTrajectories(std::vector<ctbn::Trajectory> &traj, std::vector<double> &w,
 					int numsamples, R &rand){	
 		BurnIn(rand);
+		cout<<"after burn in: "<<endl;
+		printtr(cout,tr,3);
 		for (int i=0; i<numsamples; ++i) {
 			traj.push_back(Get());
 			w.push_back(0.0);  // log weight
-			//Next();
+			Next(rand);
+			cout<<"after sample: "<<endl;
+			printtr(cout,tr,3);
 		}
 	}
 
-//mutable ctbn::Trajectory tr,oldtr;
+mutable ctbn::Trajectory tr,oldtr;
 
 protected:
 	template<typename R>
@@ -34,11 +42,18 @@ protected:
 		} else {
 			tr = *init_traj;
 		}
-		//Next(numBurninIter, rand);
+		Next(rand, numBurninIter);
 		burntin = true;
 	}
 
-	//void Next(int num_iter = 1, Random &rand = randomizer) const;
+	// one step in the markov chain state transition; 
+	template<typename R>
+	void Next(R &rand, int num_iter = 1) const{
+		for (int i=0; i<num_iter; ++i) {
+			for (size_t var=0; var!=own_var_list.size(); ++var)
+				SampleVariable(own_var_list[var], rand);
+		}			
+	}
 
 	const ctbn::Trajectory &Get() const { return tr; }
 
@@ -46,15 +61,46 @@ protected:
 
 	// Sample initial trajectory that agrees with evidence *evid.
 	void SampleInitialTrajectory() const;
-
+	void GetUnobservedIntervals(int varid) const;
 	void ClearInitTraj();
+
+	// Resample the entire trajectory of v given all the other variables' full trajectory.
+	template<typename R>
+	void SampleVariable(int var, R &rand) const{
+		ctbn::Context varcontext;
+		varcontext.AddVar(var, context->Cardinality(var));
+		GetUnobservedIntervals(var);
+		oldtr = tr;
+		double alpha = 4.0; //to be changed
+
+		//samplecomplete
+		double t = evid->TimeBegin();
+		double T = evid->TimeEnd();
+		int state;
+		std::exponential_distribution<> expdist(1.0);
+		std::uniform_real_distribution<> unifdist(0.0,1.0);
+		std::normal_distribution<> normdist(0.0,1.0);
+		double lastt=t;
+		while((t = m->geteventaux(tr,lastt,expdist(rand),unifdist(rand),normdist(rand),var,state,T,varcontext,alpha))<T) {
+			if(IsInUnobserved(starts, ends, t))
+			{
+				tr.AddTransition(var, t, state);
+			}			
+			lastt = t; //proceed no matter event kept or not
+		}
+		//thinning tr - to do
+		
+	}
 
 	int numBurninIter;
 	const ctbn::Context *context;//contexts of all vars
+	std::vector<int> own_var_list;
+	mutable std::vector<double> starts; //times when unobserved intervals start, for the current variable
+	mutable std::vector<double> ends; //times when unobserved intervals ends, for the current variable
 	const pcim *m;
 	const ctbn::Trajectory *evid;
 	ctbn::Trajectory *init_traj; 
-	mutable ctbn::Trajectory tr,oldtr; 
+	//mutable ctbn::Trajectory tr,oldtr; 
 	double begintime;
 	double endtime;
 	mutable bool burntin;

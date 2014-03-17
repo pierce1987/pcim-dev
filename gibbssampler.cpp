@@ -2,6 +2,17 @@
 
 using namespace std;
 
+
+bool IsInUnobserved(std::vector<double> &starts, std::vector<double> &ends, double t){
+	if(starts.empty())
+		return false;
+	for(int i = 0; i<starts.size(); i++){
+		if(t > starts[i] && t < ends[i])
+			return true;
+	}
+	return false;
+}
+
 GibbsAuxSampler::GibbsAuxSampler(const pcim *model, const ctbn::Trajectory *evidence, const ctbn::Context *contexts, int burnin) {
 
 	m = model;
@@ -10,6 +21,7 @@ GibbsAuxSampler::GibbsAuxSampler(const pcim *model, const ctbn::Trajectory *evid
 	numBurninIter = burnin;
 	context = contexts;
 	burntin = false;
+	own_var_list = contexts->VarList();
 	//Initialize();
 }
 
@@ -39,17 +51,19 @@ void GibbsAuxSampler::SampleInitialTrajectory() const {
 		it = evid->GetVarTraj(varid).begin();
 		tmpend = evid->GetVarTraj(varid).end();
 		while(it!=tmpend){
-			if(shouldsave)		
+			if(shouldsave && it->second != -1)		
 				tr.AddTransition(varid, it->first, it->second);
 			if(it->second == -1)
 				shouldsave = false;
 			if(it->second == -2){
 				shouldsave = true;
-				tr.AddTransition(varid, it->first, -2);
+				//tr.AddTransition(varid, it->first, -2);
 			}
 			it++;
 		}
 	}
+
+	//should sample in the [-1,-2] intervals - to do
 }
 
 
@@ -60,6 +74,23 @@ void GibbsAuxSampler::ClearInitTraj() {
 	}
 }
 
+void GibbsAuxSampler::GetUnobservedIntervals(int varid) const{
+
+	if (evid->GetVarTraj(varid).empty()) 
+		return;
+	starts.clear();
+	ends.clear();
+	decltype(evid->GetVarTraj(varid).begin()) it, tmpend;
+	it = evid->GetVarTraj(varid).begin();
+	tmpend = evid->GetVarTraj(varid).end();
+	while(it!=tmpend){
+		if(it->second == -1)
+			starts.push_back(it->first);
+		if(it->second == -2)
+			ends.push_back(it->first);
+		it++;
+	}
+}
 
 
 
