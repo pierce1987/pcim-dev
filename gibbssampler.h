@@ -21,6 +21,7 @@ public:
 					int numsamples, R &rand){	
 		BurnIn(rand);
 		cout<<"after burn in: "<<endl;
+		tr.AddTransition(0, 7, 0);//sampled from previous iteration
 		printtr(cout,tr,3);
 		for (int i=0; i<numsamples; ++i) {
 			traj.push_back(Get());
@@ -62,6 +63,7 @@ protected:
 	// Sample initial trajectory that agrees with evidence *evid.
 	void SampleInitialTrajectory() const;
 	void GetUnobservedIntervals(int varid) const;
+	void GetAuxRates(int varid, int card) const;
 	void ClearInitTraj();
 
 	// Resample the entire trajectory of v given all the other variables' full trajectory.
@@ -70,26 +72,32 @@ protected:
 		ctbn::Context varcontext;
 		varcontext.AddVar(var, context->Cardinality(var));
 		GetUnobservedIntervals(var);
+		GetAuxRates(var, context->Cardinality(var));
+		cout<<"auxrates:"<<endl;
+		for(int i = 0; i<auxstarts.size(); i++)
+		{
+			cerr<<auxrates[i]<<" in ( "<<auxstarts[i]<<","<<auxends[i]<<")"<<endl;
+		}
 		oldtr = tr;
-		double alpha = 4.0; //to be changed
-
-		//samplecomplete
-		double t = evid->TimeBegin();
-		double T = evid->TimeEnd();
-		int state;
 		std::exponential_distribution<> expdist(1.0);
 		std::uniform_real_distribution<> unifdist(0.0,1.0);
-		std::normal_distribution<> normdist(0.0,1.0);
-		double lastt=t;
-		while((t = m->geteventaux(tr,lastt,expdist(rand),unifdist(rand),normdist(rand),var,state,T,varcontext,alpha))<T) {
-			if(IsInUnobserved(starts, ends, t))
-			{
-				tr.AddTransition(var, t, state);
-			}			
-			lastt = t; //proceed no matter event kept or not
-		}
-		//thinning tr - to do
-		
+		std::normal_distribution<> normdist(0.0,1.0);		
+	
+		for(int i = 0; i < starts.size(); i++){
+
+			//samplecomplete
+			//double t = evid->TimeBegin();
+			//double T = evid->TimeEnd();
+			double t = starts[i];
+			double T = ends[i];	
+			double lastt=t;
+			while((t = m->geteventaux(tr,lastt,expdist(rand),unifdist(rand),normdist(rand),var,T,varcontext,auxstarts,auxends,auxrates))<T) {
+				cerr<<"sampled: "<<"var: "<<var<<" t: "<<t<<endl;
+				//should add to a container - to do		
+				lastt = t; //proceed no matter event kept or not
+			}
+			//thinning tr - to do
+		}//for	
 	}
 
 	int numBurninIter;
@@ -104,6 +112,10 @@ protected:
 	double begintime;
 	double endtime;
 	mutable bool burntin;
+
+	mutable vector<double> auxstarts;
+	mutable vector<double> auxends;
+	mutable vector<double> auxrates;
 
 private:
 };

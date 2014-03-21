@@ -63,6 +63,7 @@ public:
 	virtual ~pcimtest() {} ;
 	virtual void print(std::ostream &os) const = 0;
 	virtual void print(std::ostream &os, const datainfo &info) const = 0;
+	virtual int getauxv() const = 0;
 	// adds to (does not replace) outtrue and outfalse
 	virtual void chop(const vartrajrange &in,
 			std::vector<vartrajrange> &outtrue,
@@ -84,6 +85,7 @@ public:
 	lasttest(int testvar=0, int teststate=0) {
 		v = testvar;
 		state = teststate;
+		auxv = v;
 	}
 	virtual ~lasttest() {}
 	virtual void print(std::ostream &os) const {
@@ -91,6 +93,9 @@ public:
 	}
 	virtual void print(std::ostream &os, const datainfo &info) const {
 		os << "most recent state for " << info.dvarname(v) << " == " << state;
+	}
+	virtual int getauxv() const {
+		return auxv;
 	}
 	virtual void chop(const vartrajrange &in,
 			std::vector<vartrajrange> &outtrue,
@@ -152,19 +157,20 @@ public:
 protected:
 	int state;
 	int v;
+	int auxv;//used to decide aux rate, -2 means does not care 
 private:
 	friend class boost::serialization::access;
 	template<typename Ar>
 	void serialize(Ar &ar, const unsigned int ver) {
 		ar & BOOST_SERIALIZATION_BASE_OBJECT_NVP(pcimtest);
-		ar & BOOST_SERIALIZATION_NVP(v) & BOOST_SERIALIZATION_NVP(state);
+		ar & BOOST_SERIALIZATION_NVP(v) & BOOST_SERIALIZATION_NVP(state) & BOOST_SERIALIZATION_NVP(auxv);
 	}
 };
 
 class timetest : public pcimtest {
 public:
 	timetest(double tstart=0, double tend=1, double mod=1) {
-		t0 = tstart; t1 = tend; m = mod;
+		t0 = tstart; t1 = tend; m = mod; auxv = -2;
 	}
 	virtual ~timetest() {}
 	virtual void print(std::ostream &os) const {
@@ -173,7 +179,9 @@ public:
 	virtual void print(std::ostream &os, const datainfo &info) const {
 		os << "time (%" << m << ") in (" << t0 << ',' << t1 << ')';
 	}
-	
+	virtual int getauxv() const {
+		return auxv;
+	}
 	inline double remerge(double base, double inc) const {
 		return base+inc;
 	}
@@ -311,12 +319,13 @@ public:
 
 private:
 	double t0,t1,m;
+	int auxv;
 private:
 	friend class boost::serialization::access;
 	template<typename Ar>
 	void serialize(Ar &ar, const unsigned int ver) {
 		ar & BOOST_SERIALIZATION_BASE_OBJECT_NVP(pcimtest);
-		ar & BOOST_SERIALIZATION_NVP(t0) & BOOST_SERIALIZATION_NVP(t1) & BOOST_SERIALIZATION_NVP(m);
+		ar & BOOST_SERIALIZATION_NVP(t0) & BOOST_SERIALIZATION_NVP(t1) & BOOST_SERIALIZATION_NVP(m) & BOOST_SERIALIZATION_NVP(auxv);
 	}
 };
 
@@ -333,6 +342,7 @@ public:
 	virtual ~varstattest() {}
 	virtual void print(std::ostream &os) const = 0;
 	virtual void print(std::ostream &os, const datainfo &info) const =0;
+	virtual int getauxv() const = 0;
 	virtual void chop(const vartrajrange &in,
 			std::vector<vartrajrange> &outtrue,
 			std::vector<vartrajrange> &outfalse) const {
@@ -441,7 +451,7 @@ private:
 class varcounttest : public varstattest<varcounttest> {
 public:
 	varcounttest(int thresh=0, int testvar=0, double lag0=0, double lag1=1, int teststate = -1)
-			: varstattest<varcounttest>(testvar,lag0,lag1,teststate) { theta=thresh; }
+			: varstattest<varcounttest>(testvar,lag0,lag1,teststate) { theta=thresh; auxv = testvar;}
 	virtual ~varcounttest() {}
 	virtual void print(std::ostream &os) const {
 		os << "# " << v << " in [" << maxlag << ',' << minlag << ") >= "
@@ -451,7 +461,9 @@ public:
 		os << "# " << info.dvarname(v) << " measurements in [" 
 			<< maxlag << ',' << minlag << ") >= " << theta;
 	}
-
+	virtual int getauxv() const{
+		return auxv;
+	}
 	struct statT {
 		statT() { n=0; }
 		int n;
@@ -465,6 +477,7 @@ public:
 	
 protected:
 	int theta;
+	int auxv;
 private:
 	friend class boost::serialization::access;
 	template<typename Ar>
@@ -472,7 +485,7 @@ private:
 		//ar & BOOST_SERIALIZATION_BASE_OBJECT_NVP(varstattest<counttest>);
 		ar & boost::serialization::make_nvp("varstattest",
 			boost::serialization::base_object<varstattest<varcounttest>>(*this));
-		ar & BOOST_SERIALIZATION_NVP(theta);
+		ar & BOOST_SERIALIZATION_NVP(theta) & BOOST_SERIALIZATION_NVP(auxv);
 	}
 };
 
@@ -481,7 +494,7 @@ private:
 class eventcounttest : public varstattest<eventcounttest> {
 public:
 	eventcounttest(int thresh=0, int testvar=0, double lag0=0, double lag1=1, int teststate = 0)
-			: varstattest<eventcounttest>(testvar,lag0,lag1,teststate) { theta=thresh;}
+			: varstattest<eventcounttest>(testvar,lag0,lag1,teststate) { theta=thresh; auxv = testvar;}
 	virtual ~eventcounttest() {}
 	virtual void print(std::ostream &os) const {
 		os << "# (" << v <<","<<s<<")"<< " in [" << maxlag << ',' << minlag << ") >= "
@@ -491,7 +504,9 @@ public:
 		os << "# " << info.dvarname(v) << " measurements in [" 
 			<< maxlag << ',' << minlag << ") >= " << theta;
 	}
-
+	virtual int getauxv() const{
+		return auxv;
+	}
 	struct statT {
 		statT() { n=0; }
 		int n;
@@ -505,24 +520,28 @@ public:
 	
 protected:
 	int theta;
+	int auxv;
 private:
 	friend class boost::serialization::access;
 	template<typename Ar>
 	void serialize(Ar &ar, const unsigned int ver) {
 		ar & boost::serialization::make_nvp("varstattest",
 			boost::serialization::base_object<varstattest<eventcounttest>>(*this));
-		ar & BOOST_SERIALIZATION_NVP(theta);
+		ar & BOOST_SERIALIZATION_NVP(theta)& BOOST_SERIALIZATION_NVP(auxv);
 	}
 };
 
 // test if current variable == testvar
 class vartest : public pcimtest {
 public:
-	vartest(int testvar=0) : pcimtest() { v = testvar; };
+	vartest(int testvar=0) : pcimtest() { v = testvar; auxv = -2;};
 	virtual ~vartest() {} ;
 	virtual void print(std::ostream &os) const { os << "var == " << v; }
 	virtual void print(std::ostream &os, const datainfo &info) const {
 		os << "X == " << info.dvarname(v);
+	}
+	virtual int getauxv() const{
+		return auxv;
 	}
 	virtual void chop(const vartrajrange &in,
 			std::vector<vartrajrange> &outtrue,
@@ -539,23 +558,27 @@ public:
 	}
 private:
 	int v;
+	int auxv;
 private:
 	friend class boost::serialization::access;
 	template<typename Ar>
 	void serialize(Ar &ar, const unsigned int ver) {
 		ar & BOOST_SERIALIZATION_BASE_OBJECT_NVP(pcimtest);
-		ar & BOOST_SERIALIZATION_NVP(v);
+		ar & BOOST_SERIALIZATION_NVP(v)& BOOST_SERIALIZATION_NVP(auxv);
 	}
 };
 
 // test if current event == testevent
 class eventtest : public pcimtest {
 public:
-	eventtest(int testvar=0, int teststate=0) : pcimtest() { v = testvar; s = teststate;};
+	eventtest(int testvar=0, int teststate=0) : pcimtest() { v = testvar; s = teststate; auxv = -2;};
 	virtual ~eventtest() {} ;
 	virtual void print(std::ostream &os) const { os << "event == (" << v <<"," << s <<")"; }
 	virtual void print(std::ostream &os, const datainfo &info) const {
 		os << "E == (" << info.dvarname(v)<<","<<info.dvarname(s)<<")";
+	}
+	virtual int getauxv() const{
+		return auxv;
 	}
 	virtual void chop(const vartrajrange &in,
 			std::vector<vartrajrange> &outtrue,
@@ -564,15 +587,18 @@ public:
 		else outfalse.emplace_back(in);
 	}
 	virtual bool eval(const ctbn::Trajectory &tr, eventtype event, double t) const {
-		return (event.var == v && event.state==s);
+		if(v!=-1)return (event.var == v && event.state==s);
+		return (event.state==s);
 	}
 	virtual bool eval(const ctbn::Trajectory &tr, eventtype event, double t, double &until) const {
 		until = std::numeric_limits<double>::infinity();
-		return (event.var == v && event.state==s);
+		if(v!=-1)return (event.var == v && event.state==s);
+		return (event.state==s);
 	}
 private:
 	int v;
 	int s;
+	int auxv;
 private:
 	friend class boost::serialization::access;
 	template<typename Ar>
@@ -580,8 +606,10 @@ private:
 		ar & BOOST_SERIALIZATION_BASE_OBJECT_NVP(pcimtest);
 		ar & BOOST_SERIALIZATION_NVP(v);
 		ar & BOOST_SERIALIZATION_NVP(s);
+		ar & BOOST_SERIALIZATION_NVP(auxv);
 	}
 };
+
 
 class pcim {
 public:
@@ -673,8 +701,10 @@ public:
 					int &var, int &state, double maxt, const ctbn::Context &contexts) const;
 	// returns new time and sets var and val to the variable and its value
 	double geteventaux(const ctbn::Trajectory &tr, double &t, double expsamp, double unisamp, double normsamp,
-					int &var, int &state, double maxt, const ctbn::Context &contexts, double alpha) const;
+					int &var, double maxt, const ctbn::Context &contexts, std::vector<double> &auxstarts, std::vector<double> &auxends, std::vector<double> &auxrates) const;
 
+	double getauxrates(const ctbn::Trajectory &tr, double &t, int card, double &until, double &r, double varid) const;
+	double getratevaraux(const ctbn::Trajectory &tr, int varid, int state, double t, double &until) const;
 	void print(std::ostream &os) const;
 	void print(std::ostream &os, const datainfo &info) const;
 	void todot(std::ostream &os, const datainfo &info) const;

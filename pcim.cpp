@@ -7,6 +7,18 @@
 
 using namespace std;
 
+double getactualrate(double r, double t, double until, vector<double> &auxstarts, vector<double> &auxends, vector<double> &auxrates){
+	for(int i = 0; i<auxstarts.size(); i++){
+		if(t>=auxstarts[i] && t<auxends[i]){
+			//if(until>auxstarts[i] && until<=auxends[i] || until == numeric_limits<double>::infinity())
+				return auxrates[i] - r;
+			//cout<<"error!!!!!!!!!!!!!!!!"<<endl;
+		}
+
+	}
+	cout<<"problem!!!!!!!!!!!"<<endl;
+}
+
 inline vector<vartrajrange> torange(const vector<ctbn::Trajectory> &data, const ctbn::Context &contexts) {
 	vector<vartrajrange> ret;
 	if (data.empty()) return ret;
@@ -154,7 +166,7 @@ double pcim::getevent(const ctbn::Trajectory &tr, double &t, double expsamp, dou
 		r = getrate(tr,t,until,leaves,contexts);
 	}
 	//cout << r << " through " << t+expsamp/r << " [" << until << "]" << endl;
-	var = leaves.size()-1;//?
+	//var = leaves.size()-1;//not necessary??????
 	for(map<eventtype, const pcim *>::iterator it = leaves.begin();it!=leaves.end();it++) {
 		unisamp -= it->second->rate/r;
 		if (unisamp<=0) { var = it->first.var; state = it->first.state; break; } //var and state of sampled event!!
@@ -163,25 +175,65 @@ double pcim::getevent(const ctbn::Trajectory &tr, double &t, double expsamp, dou
 }
 
 double pcim::geteventaux(const ctbn::Trajectory &tr, double &t, double expsamp, double unisamp,
-		double normsamp, int &var, int &state, double maxt, const ctbn::Context &contexts, double alpha) const {
+		double normsamp, int &var, double maxt, const ctbn::Context &contexts, vector<double> &auxstarts, vector<double> &auxends, vector<double> &auxrates) const {
 
 	double until;
 	map<eventtype, const pcim *, eventcomp> leaves;
 	double r = getrate(tr,t,until,leaves,contexts);
-	r = alpha - r;
+	cerr<<"no1: "<<"r: "<<r<<" t: "<<t<<" until: "<<until<<endl;
+	r = getactualrate(r, t, until, auxstarts, auxends, auxrates);
+	cout<<"actual rate1: "<<r<<endl;
 	while(expsamp>(until-t)*r) {
 		expsamp -= (until-t)*r;
 		if (until>maxt) return maxt;
 		t = until;
 		r = getrate(tr,t,until,leaves,contexts);
-		r = alpha -r;
+		cerr<<"no2: "<<"r: "<<r<<" t: "<<t<<" until: "<<until<<endl;
+		r = getactualrate(r, t, until, auxstarts, auxends, auxrates);
+		cout<<"actual rate2: "<<r<<endl;
 	}
-	var = leaves.size()-1;
-	for(map<eventtype, const pcim *>::iterator it = leaves.begin();it!=leaves.end();it++) {
-		unisamp -= it->second->rate/r;
-		if (unisamp<=0) { var = it->first.var; state = it->first.state; break; } //var and state of sampled event!!
-	}
+
 	return t+expsamp/r;//time of sampled event!!
+}
+//new
+double pcim::getauxrates(const ctbn::Trajectory &tr, double &t, int card, double &until, double &r, double varid) const {
+	//cerr<<"begin: "<<"card: "<<card<<" t: "<<t<<" until: "<<until<<" r: "<<r<<" id:"<<varid<<endl;
+	until = numeric_limits<double>::infinity();
+	r = 0.0;
+	for(int s=0; s<card; s++){
+		r += getratevaraux(tr,varid,s,t,until);
+	}
+	return t;
+}
+//new
+double pcim::getratevaraux(const ctbn::Trajectory &tr, int varid, int state, double t, double &until) const {
+	if (!test) { return rate; }
+	double til;
+	if(test->getauxv() == -1 || test->getauxv() == varid){ //use maximum!
+		test->eval(tr,eventtype(varid, state),t,til);
+		//cout<<"til1: "<<til<<endl;
+		if (til<until) until = til;
+		double until1 = until;
+		double until2 = until;
+		double rate1 = ttree -> getratevaraux(tr,varid,state,t,until1);
+		double rate2 = ftree -> getratevaraux(tr,varid,state,t,until2);	
+		until = until1<until2? until1 : until2;
+		//cout<<"rate1: "<<rate1<<" rate2: "<<rate2<<endl;
+		if(rate1 > rate2){
+
+			return rate1;
+		}
+		else{
+
+			return rate2;			
+		}				
+	}
+	else{
+		bool dir = test->eval(tr,eventtype(varid, state),t,til);
+		//cout<<"til2: "<<til<<endl;
+		if (til<until) until = til;
+		return (dir ? ttree : ftree)->getratevaraux(tr,varid,state,t,until);			
+	}
 }
 
 double pcim::getrate(const ctbn::Trajectory &tr, double t, double &until,

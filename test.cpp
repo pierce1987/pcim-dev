@@ -34,24 +34,29 @@ int main(int argc, char **argv) {
 				new pcim(new eventcounttest(1, 1, 0, 1, 2),new pcim(20.0),new pcim(1.15)),
 				new pcim(new varcounttest(1,0),new pcim(0.01),new pcim(1)));
 
-*/
+
 	pcim truemodel(new timetest(1,4,5),
 				new pcim(2.0),
 				new pcim(0.01));
+*/
+	pcim truemodel(new lasttest(-1, 1),
+				new pcim(new lasttest(1, 1),new pcim(10.0),new pcim(2)),
+				new pcim(new eventtest(-1, 1),new pcim(3),new pcim(4)));
+
 	truemodel.print(cout); cout << endl;
 	random_device rd;
 
-	int nvar = 3;
+	int nvar = 2;
 
 	ctbn::Context contexts;
-	contexts.AddVar(0, 1);
-	contexts.AddVar(1, 1);
-	contexts.AddVar(2, 1);
+	contexts.AddVar(0, 2);
+	contexts.AddVar(1, 2);
+	//contexts.AddVar(2, 1);
 
 	unsigned int seed = rd();
 	cout << "seed = " << seed << endl;
 	mt19937 randgen(seed);
-	vector<ctbn::Trajectory> data;
+/*	vector<ctbn::Trajectory> data;
 
 	for(int i=0;i<nsamp;i++) {
 		ctbn::Trajectory tr = truemodel.sample(15.0,nvar,randgen,contexts);
@@ -94,10 +99,24 @@ int main(int argc, char **argv) {
 	data[0].AddTransition(0, 12.0, -2);//starts observing again
 	data[0].AddTransition(1, 2.1, -1);//stopped observing
 	data[0].AddTransition(1, 8.1, -2);//starts observing again
+*/
+
+	ctbn::Trajectory tr = ctbn::Trajectory();
+	tr.AddTransition(0, 1, 0);
+	tr.AddTransition(0, 3, 1);
+	tr.AddTransition(0, 4, -1);
+	tr.AddTransition(0, 6.9, -2);
+	tr.AddTransition(0, 7.1, -1);
+	tr.AddTransition(0, 8, -2);
+	//tr.AddTransition(0, 0.7, 0);
+	tr.AddTransition(1, 2, 0);
+	tr.AddTransition(1, 6.01, 1);
+	tr.AddTransition(1, 4, -1);
+	tr.AddTransition(1, 5, -2);
 
 	vector<ctbn::Trajectory> t;
 	vector<double> w;
-	GibbsAuxSampler sampler(&model, &data[0], &contexts, 0);
+	GibbsAuxSampler sampler(&truemodel, &tr, &contexts, 0);
 	sampler.SampleTrajectories(t,w,1,randgen);
 
 

@@ -63,7 +63,7 @@ void GibbsAuxSampler::SampleInitialTrajectory() const {
 		}
 	}
 
-	//should sample in the [-1,-2] intervals - to do
+	//should sample in the [-1,-2] intervals, but not neccessary - to do
 }
 
 
@@ -92,9 +92,42 @@ void GibbsAuxSampler::GetUnobservedIntervals(int varid) const{
 	}
 }
 
+void GibbsAuxSampler::GetAuxRates(int varid, int card) const{
+//fill auxstarts auxends and auxrates;
+	auxstarts.clear();
+	auxends.clear();
+	auxrates.clear();
 
+	for(int i = 0; i < starts.size(); i++){
+		double t = starts[i];
+		double T = ends[i];
+		double lastt=t;
+		double until;
+		double r;
 
-
+		while((t = m->getauxrates(tr,lastt,card,until,r,varid))<T) {
+			if(until >= T){ until = T; break;}
+			//cerr<<"here: "<<"r: "<<r<<" t: "<<t<<" until: "<<until<<endl;
+			if(!auxrates.empty() && abs(2*r - auxrates[auxrates.size()-1])<0.00001 && abs(t - auxends[auxends.size()-1])<0.00001)
+				auxends[auxends.size()-1] = until;
+			else{
+				auxstarts.push_back(t);
+				auxends.push_back(until);
+				auxrates.push_back(2*r);
+			}
+			lastt = until; //proceed no matter event kept or not
+		}
+		//cerr<<"here: "<<"r: "<<r<<" t: "<<t<<" until: "<<until<<endl;
+		if(!auxrates.empty() && abs(2*r - auxrates[auxrates.size()-1])<0.00001 && abs(t - auxends[auxends.size()-1])<0.00001)
+			auxends[auxends.size()-1] = until;
+		else{
+			auxstarts.push_back(t);
+			auxends.push_back(until);
+			auxrates.push_back(2*r);
+		}
+	}
+	
+}
 
 
 
