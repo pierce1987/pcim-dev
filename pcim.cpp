@@ -195,46 +195,8 @@ double pcim::geteventaux(const ctbn::Trajectory &tr, double &t, double expsamp, 
 
 	return t+expsamp/r;//time of sampled event!!
 }
-//new
-double pcim::getauxrates(const ctbn::Trajectory &tr, double &t, int card, double &until, double &r, double varid) const {
-	//cerr<<"begin: "<<"card: "<<card<<" t: "<<t<<" until: "<<until<<" r: "<<r<<" id:"<<varid<<endl;
-	until = numeric_limits<double>::infinity();
-	r = 0.0;
-	for(int s=0; s<card; s++){
-		r += getratevaraux(tr,varid,s,t,until);
-	}
-	return t;
-}
-//new
-double pcim::getratevaraux(const ctbn::Trajectory &tr, int varid, int state, double t, double &until) const {
-	if (!test) { return rate; }
-	double til;
-	if(test->getauxv() == -1 || test->getauxv() == varid){ //use maximum!
-		test->eval(tr,eventtype(varid, state),t,til);
-		//cout<<"til1: "<<til<<endl;
-		if (til<until) until = til;
-		double until1 = until;
-		double until2 = until;
-		double rate1 = ttree -> getratevaraux(tr,varid,state,t,until1);
-		double rate2 = ftree -> getratevaraux(tr,varid,state,t,until2);	
-		until = until1<until2? until1 : until2;
-		//cout<<"rate1: "<<rate1<<" rate2: "<<rate2<<endl;
-		if(rate1 > rate2){
 
-			return rate1;
-		}
-		else{
-
-			return rate2;			
-		}				
-	}
-	else{
-		bool dir = test->eval(tr,eventtype(varid, state),t,til);
-		//cout<<"til2: "<<til<<endl;
-		if (til<until) until = til;
-		return (dir ? ttree : ftree)->getratevaraux(tr,varid,state,t,until);			
-	}
-}
+//new
 
 double pcim::getrate(const ctbn::Trajectory &tr, double t, double &until,
 			map<eventtype, const pcim *, eventcomp> &ret, const ctbn::Context &contexts) const {
@@ -249,6 +211,17 @@ double pcim::getrate(const ctbn::Trajectory &tr, double t, double &until,
 	return r;
 }
 
+//new
+double pcim::getauxrates(const ctbn::Trajectory &tr, double &t, int card, double &until, double &r, double varid) const {
+	//cerr<<"begin: "<<"card: "<<card<<" t: "<<t<<" until: "<<until<<" r: "<<r<<" id:"<<varid<<endl;
+	until = numeric_limits<double>::infinity();
+	r = 0.0;
+	for(int s=0; s<card; s++){
+		r += getratevaraux(tr,varid,s,t,until);
+	}
+	return t;
+}
+
 double pcim::getratevar(const ctbn::Trajectory &tr, int var, int state, double t, double &until,
 			const pcim *&leaf) const {
 	if (!test) { leaf = this; return rate; }//reached leaf
@@ -256,6 +229,34 @@ double pcim::getratevar(const ctbn::Trajectory &tr, int var, int state, double t
 	bool dir = test->eval(tr,eventtype(var, state),t,til);
 	if (til<until) until = til;
 	return (dir ? ttree : ftree)->getratevar(tr,var,state,t,until,leaf);
+}
+
+double pcim::getratevaraux(const ctbn::Trajectory &tr, int varid, int state, double t, double &until) const {
+	if (!test) { return rate; }
+	double til;
+	if(test->getauxv() == -1 || test->getauxv() == varid){ //use maximum!
+		//test->eval(tr,eventtype(varid, state),t,til);
+		//cout<<"til1: "<<til<<endl;
+		//if (til<until) until = til;
+		double until1 = until;
+		double until2 = until;
+		double rate1 = ttree -> getratevaraux(tr,varid,state,t,until1);
+		double rate2 = ftree -> getratevaraux(tr,varid,state,t,until2);	
+		until = until1<until2? until1 : until2;
+		//cout<<"rate1: "<<rate1<<" rate2: "<<rate2<<endl;
+		if(rate1 > rate2){
+			return rate1;
+		}
+		else{
+			return rate2;			
+		}				
+	}
+	else{
+		bool dir = test->eval(tr,eventtype(varid, state),t,til);
+		//cout<<"til2: "<<til<<endl;
+		if (til<until) until = til;
+		return (dir ? ttree : ftree)->getratevaraux(tr,varid,state,t,until);			
+	}
 }
 
 void pcim::print(ostream &os) const {

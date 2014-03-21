@@ -38,10 +38,15 @@ int main(int argc, char **argv) {
 	pcim truemodel(new timetest(1,4,5),
 				new pcim(2.0),
 				new pcim(0.01));
-*/
+
 	pcim truemodel(new lasttest(-1, 1),
 				new pcim(new lasttest(1, 1),new pcim(10.0),new pcim(2)),
 				new pcim(new eventtest(-1, 1),new pcim(3),new pcim(4)));
+*/
+
+	pcim truemodel(new varcounttest(1, 0, 0.0, 5.0),
+				new pcim(1),
+				new pcim(new varcounttest(1, 1, 0.0, 1.0),new pcim(2),new pcim(3)));
 
 	truemodel.print(cout); cout << endl;
 	random_device rd;
@@ -49,8 +54,8 @@ int main(int argc, char **argv) {
 	int nvar = 2;
 
 	ctbn::Context contexts;
-	contexts.AddVar(0, 2);
-	contexts.AddVar(1, 2);
+	contexts.AddVar(0, 1);
+	contexts.AddVar(1, 1);
 	//contexts.AddVar(2, 1);
 
 	unsigned int seed = rd();
@@ -102,7 +107,7 @@ int main(int argc, char **argv) {
 */
 
 	ctbn::Trajectory tr = ctbn::Trajectory();
-	tr.AddTransition(0, 1, 0);
+	/*tr.AddTransition(0, 1, 0);
 	tr.AddTransition(0, 3, 1);
 	tr.AddTransition(0, 4, -1);
 	tr.AddTransition(0, 6.9, -2);
@@ -112,7 +117,12 @@ int main(int argc, char **argv) {
 	tr.AddTransition(1, 2, 0);
 	tr.AddTransition(1, 6.01, 1);
 	tr.AddTransition(1, 4, -1);
-	tr.AddTransition(1, 5, -2);
+	tr.AddTransition(1, 5, -2);*/
+
+	tr.AddTransition(0, 1, -1);
+	tr.AddTransition(0, 10, -2);
+	tr.AddTransition(0, 3, 0);
+	tr.AddTransition(1, 5, 0);
 
 	vector<ctbn::Trajectory> t;
 	vector<double> w;

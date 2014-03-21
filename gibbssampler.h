@@ -21,7 +21,7 @@ public:
 					int numsamples, R &rand){	
 		BurnIn(rand);
 		cout<<"after burn in: "<<endl;
-		tr.AddTransition(0, 7, 0);//sampled from previous iteration
+		tr.AddTransition(0, 3.0, 0);//sampled from previous iteration
 		printtr(cout,tr,3);
 		for (int i=0; i<numsamples; ++i) {
 			traj.push_back(Get());
