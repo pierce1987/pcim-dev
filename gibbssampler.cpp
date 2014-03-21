@@ -2,7 +2,6 @@
 
 using namespace std;
 
-
 bool IsInUnobserved(std::vector<double> &starts, std::vector<double> &ends, double t){
 	if(starts.empty())
 		return false;
@@ -55,15 +54,12 @@ void GibbsAuxSampler::SampleInitialTrajectory() const {
 				tr.AddTransition(varid, it->first, it->second);
 			if(it->second == -1)
 				shouldsave = false;
-			if(it->second == -2){
+			if(it->second == -2)
 				shouldsave = true;
-				//tr.AddTransition(varid, it->first, -2);
-			}
 			it++;
 		}
 	}
-
-	//should sample in the [-1,-2] intervals, but not neccessary - to do
+	//should sample in the [-1,-2] intervals, but not necessary - to do
 }
 
 
@@ -92,8 +88,9 @@ void GibbsAuxSampler::GetUnobservedIntervals(int varid) const{
 	}
 }
 
-void GibbsAuxSampler::GetAuxRates(int varid, int card) const{
 //fill auxstarts auxends and auxrates;
+void GibbsAuxSampler::GetAuxRates(int varid, int card) const{
+
 	auxstarts.clear();
 	auxends.clear();
 	auxrates.clear();
@@ -108,6 +105,7 @@ void GibbsAuxSampler::GetAuxRates(int varid, int card) const{
 		while((t = m->getauxrates(tr,lastt,card,until,r,varid))<T) {
 			if(until >= T){ until = T; break;}
 			//cerr<<"here: "<<"r: "<<r<<" t: "<<t<<" until: "<<until<<endl;
+			//merge intervals when we can
 			if(!auxrates.empty() && abs(2*r - auxrates[auxrates.size()-1])<0.00001 && abs(t - auxends[auxends.size()-1])<0.00001)
 				auxends[auxends.size()-1] = until;
 			else{

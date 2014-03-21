@@ -696,15 +696,13 @@ public:
 
 	// returns relevant leaves in ret and sum as return value
 	double getrate(const ctbn::Trajectory &tr, double t, double &until, std::map<eventtype, const pcim *, eventcomp> &ret, const ctbn::Context &contexts) const;
+	double getauxrates(const ctbn::Trajectory &tr, double &t, int card, double &until, double &r, double varid) const;
 	// returns new time and sets var and val to the variable and its value
 	double getevent(const ctbn::Trajectory &tr, double &t, double expsamp, double unisamp, double normsamp,
 					int &var, int &state, double maxt, const ctbn::Context &contexts) const;
-	// returns new time and sets var and val to the variable and its value
 	double geteventaux(const ctbn::Trajectory &tr, double &t, double expsamp, double unisamp, double normsamp,
 					int &var, double maxt, const ctbn::Context &contexts, std::vector<double> &auxstarts, std::vector<double> &auxends, std::vector<double> &auxrates) const;
 
-	double getauxrates(const ctbn::Trajectory &tr, double &t, int card, double &until, double &r, double varid) const;
-	double getratevaraux(const ctbn::Trajectory &tr, int varid, int state, double t, double &until) const;
 	void print(std::ostream &os) const;
 	void print(std::ostream &os, const datainfo &info) const;
 	void todot(std::ostream &os, const datainfo &info) const;
@@ -745,6 +743,7 @@ private:
 	void calcleaf(const ss &d, const pcimparams &p);
 
 	double getratevar(const ctbn::Trajectory &tr, int var, int state, double t, double &until, const pcim *&leaf) const;
+	double getratevaraux(const ctbn::Trajectory &tr, int varid, int state, double t, double &until) const;
 
 	void printhelp(std::ostream &os, int lvl, const datainfo *info=nullptr) const;
 	void todothelp(std::ostream &os, int par, bool istrue, int &nn, const datainfo &info) const;

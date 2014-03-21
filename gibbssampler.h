@@ -5,6 +5,7 @@
 
 using namespace std;
 
+//not used now
 bool IsInUnobserved(std::vector<double> &starts, std::vector<double> &ends, double t);
 
 class GibbsAuxSampler{
@@ -69,9 +70,12 @@ protected:
 	// Resample the entire trajectory of v given all the other variables' full trajectory.
 	template<typename R>
 	void SampleVariable(int var, R &rand) const{
+		//only use Context for the current variable
 		ctbn::Context varcontext;
 		varcontext.AddVar(var, context->Cardinality(var));
+		//get unobserved intervals for the current variable (info in starts and ends)
 		GetUnobservedIntervals(var);
+		//get omega intervals (info in auxstarts, auxends, and auxrates)
 		GetAuxRates(var, context->Cardinality(var));
 		cout<<"auxrates:"<<endl;
 		for(int i = 0; i<auxstarts.size(); i++)
@@ -83,11 +87,8 @@ protected:
 		std::uniform_real_distribution<> unifdist(0.0,1.0);
 		std::normal_distribution<> normdist(0.0,1.0);		
 	
-		for(int i = 0; i < starts.size(); i++){
-
-			//samplecomplete
-			//double t = evid->TimeBegin();
-			//double T = evid->TimeEnd();
+		for(int i = 0; i < starts.size(); i++){ // for each unobserved intervals
+			//from samplecomplete
 			double t = starts[i];
 			double T = ends[i];	
 			double lastt=t;
@@ -97,7 +98,7 @@ protected:
 				lastt = t; //proceed no matter event kept or not
 			}
 			//thinning tr - to do
-		}//for	
+		}
 	}
 
 	int numBurninIter;

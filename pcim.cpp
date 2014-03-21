@@ -192,7 +192,7 @@ double pcim::geteventaux(const ctbn::Trajectory &tr, double &t, double expsamp, 
 		r = getactualrate(r, t, until, auxstarts, auxends, auxrates);
 		cout<<"actual rate2: "<<r<<endl;
 	}
-
+	//no need to iterate through leaves, since we only sample the one and only var (not care about state yet)
 	return t+expsamp/r;//time of sampled event!!
 }
 
@@ -216,6 +216,7 @@ double pcim::getauxrates(const ctbn::Trajectory &tr, double &t, int card, double
 	//cerr<<"begin: "<<"card: "<<card<<" t: "<<t<<" until: "<<until<<" r: "<<r<<" id:"<<varid<<endl;
 	until = numeric_limits<double>::infinity();
 	r = 0.0;
+	//only sample one variable in the gibbs sampler
 	for(int s=0; s<card; s++){
 		r += getratevaraux(tr,varid,s,t,until);
 	}
@@ -244,12 +245,7 @@ double pcim::getratevaraux(const ctbn::Trajectory &tr, int varid, int state, dou
 		double rate2 = ftree -> getratevaraux(tr,varid,state,t,until2);	
 		until = until1<until2? until1 : until2;
 		//cout<<"rate1: "<<rate1<<" rate2: "<<rate2<<endl;
-		if(rate1 > rate2){
-			return rate1;
-		}
-		else{
-			return rate2;			
-		}				
+		return rate1 > rate2? rate1 : rate2;				
 	}
 	else{
 		bool dir = test->eval(tr,eventtype(varid, state),t,til);
