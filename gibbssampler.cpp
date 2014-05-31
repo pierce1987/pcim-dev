@@ -12,6 +12,38 @@ bool IsInUnobserved(std::vector<double> &starts, std::vector<double> &ends, doub
 	return false;
 }
 
+
+double GibbsAuxSampler::getnextevent(double t0, int &event) const{
+	double min_time = 10000000000;
+	double old_min = min_time;
+	map<double, int>::const_iterator tempitr;
+	for (size_t var=0; var!=own_var_list.size(); ++var){
+		tempitr = oldtr.GetVarTraj(own_var_list[var]).upper_bound(t0);
+		if( tempitr != oldtr.GetVarTraj(own_var_list[var]).end()){
+			if(tempitr->first < min_time){
+				min_time = tempitr->first;
+				event = own_var_list[var];
+			}
+		}
+	}
+
+	if(min_time == old_min)
+		return -1.0;
+
+	else
+		return min_time;
+}
+
+bool GibbsAuxSampler::IsVirtual(double t0, int event, int varid) const{
+	if(event != varid)
+		return false;
+	for(int i=0; i<starts.size(); i++){
+		if(t0>=starts[i] && t0<=ends[i])
+			return true;
+	}
+	return false;
+}
+
 GibbsAuxSampler::GibbsAuxSampler(const pcim *model, const ctbn::Trajectory *evidence, const ctbn::Context *contexts, int burnin) {
 
 	m = model;
@@ -125,6 +157,31 @@ void GibbsAuxSampler::GetAuxRates(int varid, int card) const{
 		}
 	}
 	
+}
+
+//thinning, performed on oldtr
+void GibbsAuxSampler::Thinning(int varid) const{
+
+	if(starts.empty())
+		return;
+	//forward pass
+	double t0 = starts[0]-0.001;
+	int event = varid;
+	//cerr<<"t0:"<<t0<<endl;
+	for(;;) { //until the last event
+		t0 = getnextevent(t0, event); 
+		if(t0 == -1.0) break;
+		bool isvirtual = IsVirtual(t0, event, varid);
+		if(isvirtual){
+			//get actual rate
+			
+		}
+		else{//evidence
+			
+		}
+		//cerr<<"time: "<<t0<<" event: "<<event<<endl;
+		//cerr<<"virtual? "<<isvirtual<<endl;
+	}
 }
 
 

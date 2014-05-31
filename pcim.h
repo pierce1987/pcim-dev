@@ -329,7 +329,7 @@ private:
 	}
 };
 
-
+//virtual class
 template<typename D>
 class varstattest : public pcimtest {
 public:

@@ -121,13 +121,13 @@ int main(int argc, char **argv) {
 
 	tr.AddTransition(0, 1, -1);
 	tr.AddTransition(0, 10, -2);
-	tr.AddTransition(0, 3, 0);
+	//tr.AddTransition(0, 3, 0);
 	tr.AddTransition(1, 5, 0);
 
-	vector<ctbn::Trajectory> t;
+	vector<ctbn::Trajectory> t;//vector of sampled trajectories
 	vector<double> w;
-	GibbsAuxSampler sampler(&truemodel, &tr, &contexts, 0);
-	sampler.SampleTrajectories(t,w,1,randgen);
+	GibbsAuxSampler sampler(&truemodel, &tr, &contexts, 0); //tr is evidence, last param is burn-in round
+	sampler.SampleTrajectories(t,w,1,randgen);//3rd param: # of samples wanted
 
 
 	//printtr(cout,sampler.tr,3);

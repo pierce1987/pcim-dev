@@ -22,7 +22,7 @@ public:
 					int numsamples, R &rand){	
 		BurnIn(rand);
 		cout<<"after burn in: "<<endl;
-		tr.AddTransition(0, 3.0, 0);//sampled from previous iteration
+		//tr.AddTransition(0, 3.0, 0);//sampled from previous iteration
 		printtr(cout,tr,3);
 		for (int i=0; i<numsamples; ++i) {
 			traj.push_back(Get());
@@ -66,6 +66,9 @@ protected:
 	void GetUnobservedIntervals(int varid) const;
 	void GetAuxRates(int varid, int card) const;
 	void ClearInitTraj();
+	double getnextevent(double t0, int &event) const;
+	bool IsVirtual(double t0, int event, int varid) const;
+	void Thinning(int var) const;
 
 	// Resample the entire trajectory of v given all the other variables' full trajectory.
 	template<typename R>
@@ -93,12 +96,19 @@ protected:
 			double T = ends[i];	
 			double lastt=t;
 			while((t = m->geteventaux(tr,lastt,expdist(rand),unifdist(rand),normdist(rand),var,T,varcontext,auxstarts,auxends,auxrates))<T) {
-				cerr<<"sampled: "<<"var: "<<var<<" t: "<<t<<endl;
-				//should add to a container - to do		
+				//cerr<<"sampled: "<<"var: "<<var<<" t: "<<t<<endl;
+				//oldtr.AddTransition(var, t, 0);	
 				lastt = t; //proceed no matter event kept or not
 			}
-			//thinning tr - to do
+
 		}
+		//virtual events as
+		oldtr.AddTransition(0, 2, 0);
+		oldtr.AddTransition(0, 3, 0);
+		oldtr.AddTransition(0, 4, 0);
+		oldtr.AddTransition(0, 8, 0);
+		Thinning(var);
+		tr = oldtr;
 	}
 
 	int numBurninIter;

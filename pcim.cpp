@@ -157,7 +157,7 @@ double pcim::getevent(const ctbn::Trajectory &tr, double &t, double expsamp, dou
 	//cout << t << " w/ " << expsamp << endl;
 	double until;
 	map<eventtype, const pcim *, eventcomp> leaves;
-	double r = getrate(tr,t,until,leaves,contexts);
+	double r = getrate(tr,t,until,leaves,contexts); //know which event map to which leaf
 	while(expsamp>(until-t)*r) {
 		expsamp -= (until-t)*r;
 		//cout << r << " until " << until << " (" << expsamp << ")" << endl;
@@ -180,17 +180,17 @@ double pcim::geteventaux(const ctbn::Trajectory &tr, double &t, double expsamp, 
 	double until;
 	map<eventtype, const pcim *, eventcomp> leaves;
 	double r = getrate(tr,t,until,leaves,contexts);
-	cerr<<"no1: "<<"r: "<<r<<" t: "<<t<<" until: "<<until<<endl;
+	//cerr<<"no1: "<<"r: "<<r<<" t: "<<t<<" until: "<<until<<endl;
 	r = getactualrate(r, t, until, auxstarts, auxends, auxrates);
-	cout<<"actual rate1: "<<r<<endl;
+	//cout<<"actual rate1: "<<r<<endl;
 	while(expsamp>(until-t)*r) {
 		expsamp -= (until-t)*r;
 		if (until>maxt) return maxt;
 		t = until;
 		r = getrate(tr,t,until,leaves,contexts);
-		cerr<<"no2: "<<"r: "<<r<<" t: "<<t<<" until: "<<until<<endl;
+		//cerr<<"no2: "<<"r: "<<r<<" t: "<<t<<" until: "<<until<<endl;
 		r = getactualrate(r, t, until, auxstarts, auxends, auxrates);
-		cout<<"actual rate2: "<<r<<endl;
+		//cout<<"actual rate2: "<<r<<endl;
 	}
 	//no need to iterate through leaves, since we only sample the one and only var (not care about state yet)
 	return t+expsamp/r;//time of sampled event!!
