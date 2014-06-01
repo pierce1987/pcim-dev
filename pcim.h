@@ -58,6 +58,16 @@ struct vartrajrange {
 	timerange range;
 };
 
+
+class ssum{ //for test state
+public:
+	//virtual bool getdecision(ssum &teststate, int var, double t) const {};
+	virtual ssum update(double t, int var) {};
+	virtual void initialize() {};
+	virtual std::string getsig() {return "empty";};
+};
+
+
 class pcimtest {
 public:
 	virtual ~pcimtest() {} ;
@@ -72,11 +82,24 @@ public:
 		double toss; return eval(tr,event,t,toss);
 	}
 	virtual bool eval(const ctbn::Trajectory &tr, eventtype event, double t, double &until) const = 0;
+	virtual bool getdecision(ssum *teststate, int var, double t) const{};
+	virtual ssum* getteststate() = 0;
+
 private:
+	
 	friend class boost::serialization::access;
 	template<typename Ar>
 	void serialize(Ar &ar, const unsigned int ver) {
 	}
+};
+
+
+class ssum_double : public ssum{
+	double lasttime;
+	//virtual bool getdecision(ssum &teststate, int var, double t) const {}
+	virtual ssum update(double t, int var) {}
+	virtual void initialize() { lasttime = -100; }	
+	virtual std::string getsig() {return "ssum_double";}	
 };
 
 // tests if last state of testvar == teststate (if no last state, state taken to be 0)
@@ -154,10 +177,13 @@ public:
 		return (i0==e ? 0 : i0->second) == state;
 	}
 
+	virtual ssum* getteststate() {return &teststate;}
+
 protected:
 	int state;
 	int v;
 	int auxv;//used to decide aux rate, -2 means does not care 
+	ssum_double teststate;
 private:
 	friend class boost::serialization::access;
 	template<typename Ar>
@@ -317,9 +343,11 @@ public:
 		return myt0>myt1;
 	}
 
+	virtual ssum* getteststate() {return &teststate;}
 private:
 	double t0,t1,m;
 	int auxv;
+	ssum_double teststate;
 private:
 	friend class boost::serialization::access;
 	template<typename Ar>
@@ -474,10 +502,34 @@ public:
 	bool evalstat(const statT &s) const {
 		return s.n>=theta;
 	}
+
+	double getmaxlag() const{
+		return maxlag;
+	}
+
+	class ssum_double1 : public ssum{
+	public:
+		double lasttime;
+
+		virtual ssum update(double t, int var) {}
+		virtual void initialize() { lasttime = -100; }
+		virtual std::string getsig() {return "ssum_double1";}	
+	};
+	virtual ssum* getteststate() {return &teststate;}		
+
+	virtual bool getdecision(ssum *state, int var, double t) const{
+			ssum_double1* state1 = dynamic_cast<ssum_double1*> (state);
+			std::cerr<<"!!!!: "<<state1->lasttime<<" "<<t<<" "<<maxlag<<std::endl;
+			if(state1->lasttime >= (t-maxlag) && state1->lasttime <= (t-minlag))
+				return true;			
+			else 
+				return false;							
+	}
 	
 protected:
 	int theta;
 	int auxv;
+	ssum_double1 teststate;
 private:
 	friend class boost::serialization::access;
 	template<typename Ar>
@@ -517,10 +569,12 @@ public:
 	bool evalstat(const statT &s) const {
 		return s.n>=theta;
 	}
+	virtual ssum* getteststate() {return &teststate;}
 	
 protected:
 	int theta;
 	int auxv;
+	ssum_double teststate;
 private:
 	friend class boost::serialization::access;
 	template<typename Ar>
@@ -556,9 +610,11 @@ public:
 		until = std::numeric_limits<double>::infinity();
 		return event.var==v;
 	}
+	virtual ssum* getteststate() {return &teststate;}
 private:
 	int v;
 	int auxv;
+	ssum_double teststate;
 private:
 	friend class boost::serialization::access;
 	template<typename Ar>
@@ -595,10 +651,12 @@ public:
 		if(v!=-1)return (event.var == v && event.state==s);
 		return (event.state==s);
 	}
+	virtual ssum* getteststate() {return &teststate;}
 private:
 	int v;
 	int s;
 	int auxv;
+	ssum_double teststate;
 private:
 	friend class boost::serialization::access;
 	template<typename Ar>
@@ -702,7 +760,7 @@ public:
 					int &var, int &state, double maxt, const ctbn::Context &contexts) const;
 	double geteventaux(const ctbn::Trajectory &tr, double &t, double expsamp, double unisamp, double normsamp,
 					int &var, double maxt, const ctbn::Context &contexts, std::vector<double> &auxstarts, std::vector<double> &auxends, std::vector<double> &auxrates) const;
-
+	double getrate_test(int event, double t0) const;
 	void print(std::ostream &os) const;
 	void print(std::ostream &os, const datainfo &info) const;
 	void todot(std::ostream &os, const datainfo &info) const;
@@ -744,6 +802,7 @@ private:
 
 	double getratevar(const ctbn::Trajectory &tr, int var, int state, double t, double &until, const pcim *&leaf) const;
 	double getratevaraux(const ctbn::Trajectory &tr, int varid, int state, double t, double &until) const;
+
 
 	void printhelp(std::ostream &os, int lvl, const datainfo *info=nullptr) const;
 	void todothelp(std::ostream &os, int par, bool istrue, int &nn, const datainfo &info) const;

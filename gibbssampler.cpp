@@ -44,6 +44,15 @@ bool GibbsAuxSampler::IsVirtual(double t0, int event, int varid) const{
 	return false;
 }
 
+double GibbsAuxSampler::Getkeepprob(double rate, double t0) const{
+	for(int i = 0; i<auxstarts.size(); i++){
+		if(t0 > auxstarts[i] && t0 < auxends[i])
+			return rate/auxrates[i];
+	}
+	cerr<<"error!!!!"<<endl;
+
+}
+
 GibbsAuxSampler::GibbsAuxSampler(const pcim *model, const ctbn::Trajectory *evidence, const ctbn::Context *contexts, int burnin) {
 
 	m = model;
@@ -160,29 +169,8 @@ void GibbsAuxSampler::GetAuxRates(int varid, int card) const{
 }
 
 //thinning, performed on oldtr
-void GibbsAuxSampler::Thinning(int varid) const{
 
-	if(starts.empty())
-		return;
-	//forward pass
-	double t0 = starts[0]-0.001;
-	int event = varid;
-	//cerr<<"t0:"<<t0<<endl;
-	for(;;) { //until the last event
-		t0 = getnextevent(t0, event); 
-		if(t0 == -1.0) break;
-		bool isvirtual = IsVirtual(t0, event, varid);
-		if(isvirtual){
-			//get actual rate
-			
-		}
-		else{//evidence
-			
-		}
-		//cerr<<"time: "<<t0<<" event: "<<event<<endl;
-		//cerr<<"virtual? "<<isvirtual<<endl;
-	}
-}
+
 
 
 

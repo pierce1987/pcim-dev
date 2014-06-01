@@ -68,7 +68,39 @@ protected:
 	void ClearInitTraj();
 	double getnextevent(double t0, int &event) const;
 	bool IsVirtual(double t0, int event, int varid) const;
-	void Thinning(int var) const;
+	double Getkeepprob(double rate, double t0) const;
+
+	template<typename R>
+	void Thinning(int varid, R &rand) const{
+		std::uniform_real_distribution<> unifdist(0.0,1.0);
+		if(starts.empty())
+			return;
+		//forward pass
+		double t0 = starts[0]-0.001;
+		int event = varid;
+		//cerr<<"t0:"<<t0<<endl;
+		for(;;) { //until the last event
+			t0 = getnextevent(t0, event); 
+			if(t0 == -1.0) break;
+			bool isvirtual = IsVirtual(t0, event, varid);
+			if(isvirtual){
+				//get actual rate
+				//cerr<<"event: "<<event<<"t0:"<<t0<<endl;
+				//double rate = m->getrate_test(event, t0);
+				//cerr<<"actual rate: "<<rate<<endl;
+				//double p_keep = Getkeepprob(rate, t0);
+				double p_keep = Getkeepprob(m->getrate_test(event, t0), t0);
+				cerr<<"p_keep: "<<p_keep<<endl;
+				cerr<<"roll: "<<unifdist(rand)<<endl;
+			
+			}
+			else{//evidence
+				
+			}
+			//cerr<<"time: "<<t0<<" event: "<<event<<endl;
+			//cerr<<"virtual? "<<isvirtual<<endl;
+		}
+	}
 
 	// Resample the entire trajectory of v given all the other variables' full trajectory.
 	template<typename R>
@@ -107,7 +139,7 @@ protected:
 		oldtr.AddTransition(0, 3, 0);
 		oldtr.AddTransition(0, 4, 0);
 		oldtr.AddTransition(0, 8, 0);
-		Thinning(var);
+		Thinning(var, rand);
 		tr = oldtr;
 	}
 

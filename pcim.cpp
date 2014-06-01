@@ -255,6 +255,21 @@ double pcim::getratevaraux(const ctbn::Trajectory &tr, int varid, int state, dou
 	}
 }
 
+double pcim::getrate_test(int event, double t0) const{
+
+	if(!test) {return rate;}
+
+	cout<<test->getteststate()->getsig()<<endl;
+	varcounttest::ssum_double1 *temp = dynamic_cast<varcounttest::ssum_double1 *>(test->getteststate());
+	temp->initialize();
+	cout<<"content:"<<temp->lasttime<<endl;
+	bool dir = test->getdecision(test->getteststate(), event, t0);
+
+	return (dir ? ttree : ftree) ->getrate_test(event, t0);
+
+
+}
+
 void pcim::print(ostream &os) const {
 	printhelp(os,0);
 }
