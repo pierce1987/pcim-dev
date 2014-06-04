@@ -5,6 +5,19 @@
 
 using namespace std;
 
+struct ssumpcomp{
+	bool operator() (const vector<shptr<generic_state>>& lhs, const vector<shptr<generic_state>>& rhs){
+		for(int i = 0; i<lhs.size(); i++){
+			if(lhs[i]->isequal(rhs[i]))
+				continue;
+			else
+				return lhs[i]->islessthan(rhs[i]);
+		}
+		return false;
+	}
+
+};
+
 //not used now
 bool IsInUnobserved(std::vector<double> &starts, std::vector<double> &ends, double t);
 
@@ -69,13 +82,55 @@ protected:
 	double getnextevent(double t0, int &event) const;
 	bool IsVirtual(double t0, int event, int varid) const;
 	double Getkeepprob(double rate, double t0) const;
+	//vector<ssum> StateInit(pcim *m) const;
 
 	template<typename R>
 	void Thinning(int varid, R &rand) const{
 		std::uniform_real_distribution<> unifdist(0.0,1.0);
 		if(starts.empty())
 			return;
+
 		//forward pass
+		unsigned T_event = 0; //event count
+		vector<int> testindexes(10);
+		m->Makeindex(testindexes,0);
+		vector<shptr<generic_state> > jointstate;
+		m->StateInit(jointstate);
+
+		cerr<<"testindex:"<<endl;
+		for(int i=0; i<testindexes.size(); i++){
+			cout<<testindexes[i]<<" ";
+		}
+		cout<<endl;
+
+		for(int i = 0; i<jointstate.size(); i++){
+			cerr<<"content: ";
+			jointstate[i]->print();
+			cerr<<endl;
+		}
+
+
+/*		map<vector<ssum*>, double, ssumpcomp> timestate;
+		timestate.insert(pair<vector<ssum*>, double>(jointstate, 0.0));
+		cout<<"size: "<<jointstate.size()<<endl;
+		cout<<"value:"<<timestate.begin()->second<<endl;
+		//for(int i = 0; i<jointstate.size(); i++){ //should delete vector<map> at the end
+		//	delete jointstate[i];
+		//}
+		jointstate.clear();
+
+		m->StateInit(jointstate, testindexes, 1);
+
+		auto it = timestate.find(jointstate); 
+		if(it != timestate.end()){
+			it->second = 1.0;
+		} 
+
+
+		cout<<"size: "<<jointstate.size()<<endl;
+		cout<<"value:"<<timestate.begin()->second<<endl;
+		cout<<"MAPSIZE:"<<timestate.size()<<endl;
+
 		double t0 = starts[0]-0.001;
 		int event = varid;
 		//cerr<<"t0:"<<t0<<endl;
@@ -90,17 +145,19 @@ protected:
 				//cerr<<"actual rate: "<<rate<<endl;
 				//double p_keep = Getkeepprob(rate, t0);
 				double p_keep = Getkeepprob(m->getrate_test(event, t0), t0);
-				cerr<<"p_keep: "<<p_keep<<endl;
-				cerr<<"roll: "<<unifdist(rand)<<endl;
-			
+				//cerr<<"p_keep: "<<p_keep<<endl;
+				if(unifdist(rand) <= p_keep){ //case: keep event
+					
+				
+				}
 			}
 			else{//evidence
 				
 			}
 			//cerr<<"time: "<<t0<<" event: "<<event<<endl;
 			//cerr<<"virtual? "<<isvirtual<<endl;
-		}
-	}
+		}*/
+	}//end of Thinning
 
 	// Resample the entire trajectory of v given all the other variables' full trajectory.
 	template<typename R>

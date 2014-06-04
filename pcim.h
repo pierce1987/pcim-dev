@@ -13,6 +13,7 @@
 #include <vector>
 #include <array>
 #include <future>
+#include <boost/make_shared.hpp>
 
 namespace boost { namespace serialization { 
 	class access;
@@ -59,14 +60,57 @@ struct vartrajrange {
 };
 
 
-class ssum{ //for test state
+class generic_state{ //for test state
 public:
 	//virtual bool getdecision(ssum &teststate, int var, double t) const {};
-	virtual ssum update(double t, int var) {};
-	virtual void initialize() {};
+	virtual shptr<generic_state> getnewstate(shptr<generic_state>, double t, int var) const{};
+	virtual shptr<generic_state> initialize() {};
 	virtual std::string getsig() {return "empty";};
+	virtual void print() const{std::cerr<<"nothing"<<std::endl;}
+	virtual bool isequal(shptr<generic_state> rhs) const{};
+	virtual bool islessthan(shptr<generic_state> rhs) const{};
 };
 
+class state_double : public generic_state{
+public:
+	//virtual bool getdecision(ssum &teststate, int var, double t) const {}
+	state_double(){lasttime=-100;}
+	virtual shptr<generic_state> getnewstate(shptr<generic_state>, double t, int var) const{}
+	virtual shptr<generic_state> initialize()  { return boost::make_shared<state_double>(); 
+	}	
+	virtual std::string getsig() {return "ssum_double";}	
+	virtual void print() const{std::cerr<<"double: "<<lasttime<<std::endl;}
+	virtual bool isequal(shptr<generic_state> rhs) const{
+		return this->lasttime == boost::dynamic_pointer_cast<state_double>(rhs)->lasttime;
+	}
+	virtual bool islessthan(shptr<generic_state> rhs) const{
+		return this->lasttime < boost::dynamic_pointer_cast<state_double>(rhs)->lasttime;
+	}	
+	double lasttime;
+};
+
+class state_double1 : public generic_state{
+public:
+	state_double1(){lasttime=-100;}
+	virtual shptr<generic_state> getnewstate(shptr<generic_state>, double t, int var) const{}
+	virtual shptr<generic_state> initialize()  { return boost::make_shared<state_double1>(); 
+	}
+	virtual std::string getsig() {return "ssum_double1";}	
+	virtual void print() const{std::cerr<<"double1: "<<lasttime<<std::endl;}
+	virtual bool isequal(shptr<generic_state> rhs) const{
+		std::cerr<<"???????"<<std::endl;
+		//std::cerr<<"1:"<<dynamic_cast<ssum_double1*>(rhs)->lasttime<<std::endl;
+		std::cerr<<"1:"<<rhs->getsig()<<std::endl;
+		return this->lasttime == boost::dynamic_pointer_cast<state_double1>(rhs)->lasttime;
+		std::cerr<<"???????"<<std::endl;
+	}
+	virtual bool islessthan(shptr<generic_state> rhs) const{
+		std::cerr<<"!!!!!!!"<<std::endl;
+		return this->lasttime < boost::dynamic_pointer_cast<state_double1>(rhs)->lasttime;
+		std::cerr<<"!!!!!!!"<<std::endl;
+	}
+	double lasttime;
+};
 
 class pcimtest {
 public:
@@ -82,8 +126,8 @@ public:
 		double toss; return eval(tr,event,t,toss);
 	}
 	virtual bool eval(const ctbn::Trajectory &tr, eventtype event, double t, double &until) const = 0;
-	virtual bool getdecision(ssum *teststate, int var, double t) const{};
-	virtual ssum* getteststate() = 0;
+	virtual bool getdecision(shptr<generic_state> teststate, int var, double t) const{};
+	virtual generic_state* getteststate() = 0;
 
 private:
 	
@@ -94,13 +138,7 @@ private:
 };
 
 
-class ssum_double : public ssum{
-	double lasttime;
-	//virtual bool getdecision(ssum &teststate, int var, double t) const {}
-	virtual ssum update(double t, int var) {}
-	virtual void initialize() { lasttime = -100; }	
-	virtual std::string getsig() {return "ssum_double";}	
-};
+
 
 // tests if last state of testvar == teststate (if no last state, state taken to be 0)
 class lasttest : public pcimtest {
@@ -177,13 +215,13 @@ public:
 		return (i0==e ? 0 : i0->second) == state;
 	}
 
-	virtual ssum* getteststate() {return &teststate;}
+	virtual generic_state* getteststate() {return &teststate;}
 
 protected:
 	int state;
 	int v;
 	int auxv;//used to decide aux rate, -2 means does not care 
-	ssum_double teststate;
+	state_double teststate;
 private:
 	friend class boost::serialization::access;
 	template<typename Ar>
@@ -343,11 +381,11 @@ public:
 		return myt0>myt1;
 	}
 
-	virtual ssum* getteststate() {return &teststate;}
+	virtual generic_state* getteststate() {return &teststate;}
 private:
 	double t0,t1,m;
 	int auxv;
-	ssum_double teststate;
+	state_double teststate;
 private:
 	friend class boost::serialization::access;
 	template<typename Ar>
@@ -507,20 +545,10 @@ public:
 		return maxlag;
 	}
 
-	class ssum_double1 : public ssum{
-	public:
-		double lasttime;
+	virtual generic_state* getteststate() {return &teststate;}		
 
-		virtual ssum update(double t, int var) {}
-		virtual void initialize() { lasttime = -100; }
-		virtual std::string getsig() {return "ssum_double1";}	
-	};
-	virtual ssum* getteststate() {return &teststate;}		
-
-	virtual bool getdecision(ssum *state, int var, double t) const{
-			ssum_double1* state1 = dynamic_cast<ssum_double1*> (state);
-			std::cerr<<"!!!!: "<<state1->lasttime<<" "<<t<<" "<<maxlag<<std::endl;
-			if(state1->lasttime >= (t-maxlag) && state1->lasttime <= (t-minlag))
+	virtual bool getdecision(shptr<generic_state> state, int var, double t) const{
+			if(boost::dynamic_pointer_cast<state_double1>(state)->lasttime >= (t-maxlag) && boost::dynamic_pointer_cast<state_double1>(state)->lasttime <= (t-minlag))
 				return true;			
 			else 
 				return false;							
@@ -529,7 +557,7 @@ public:
 protected:
 	int theta;
 	int auxv;
-	ssum_double1 teststate;
+	state_double1 teststate;
 private:
 	friend class boost::serialization::access;
 	template<typename Ar>
@@ -569,12 +597,12 @@ public:
 	bool evalstat(const statT &s) const {
 		return s.n>=theta;
 	}
-	virtual ssum* getteststate() {return &teststate;}
+	virtual generic_state* getteststate() {return &teststate;}
 	
 protected:
 	int theta;
 	int auxv;
-	ssum_double teststate;
+	state_double teststate;
 private:
 	friend class boost::serialization::access;
 	template<typename Ar>
@@ -610,11 +638,11 @@ public:
 		until = std::numeric_limits<double>::infinity();
 		return event.var==v;
 	}
-	virtual ssum* getteststate() {return &teststate;}
+	virtual generic_state* getteststate() {return &teststate;}
 private:
 	int v;
 	int auxv;
-	ssum_double teststate;
+	state_double teststate;
 private:
 	friend class boost::serialization::access;
 	template<typename Ar>
@@ -651,12 +679,12 @@ public:
 		if(v!=-1)return (event.var == v && event.state==s);
 		return (event.state==s);
 	}
-	virtual ssum* getteststate() {return &teststate;}
+	virtual generic_state* getteststate() {return &teststate;}
 private:
 	int v;
 	int s;
 	int auxv;
-	ssum_double teststate;
+	state_double teststate;
 private:
 	friend class boost::serialization::access;
 	template<typename Ar>
@@ -761,6 +789,8 @@ public:
 	double geteventaux(const ctbn::Trajectory &tr, double &t, double expsamp, double unisamp, double normsamp,
 					int &var, double maxt, const ctbn::Context &contexts, std::vector<double> &auxstarts, std::vector<double> &auxends, std::vector<double> &auxrates) const;
 	double getrate_test(int event, double t0) const;
+	void StateInit(std::vector<shptr<generic_state> > &jointstate) const;
+	int Makeindex(std::vector<int> &indexes, int i) const;
 	void print(std::ostream &os) const;
 	void print(std::ostream &os, const datainfo &info) const;
 	void todot(std::ostream &os, const datainfo &info) const;
