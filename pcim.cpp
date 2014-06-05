@@ -255,20 +255,18 @@ double pcim::getratevaraux(const ctbn::Trajectory &tr, int varid, int state, dou
 	}
 }
 
-double pcim::getrate_test(int event, double t0) const{ //shoule pass in state vector here
-/*
+double pcim::getrate_test(int event, double t0, vector<int> &testindexes, vector<shptr<generic_state> > &jointstate, int index) const{ //shoule pass in state vector here
+
 	if(!test) {return rate;}
 
-	cout<<test->getteststate()->getsig()<<endl;
-	//varcounttest::ssum_double1 *temp = dynamic_cast<varcounttest::ssum_double1 *>(test->getteststate());
-	//temp->initialize();
-	//cout<<"content:"<<temp->lasttime<<endl;
-	test->getteststate()->initialize();
-	bool dir = test->getdecision(test->getteststate(), event, t0);
+	bool dir = test->getdecision(jointstate[index], event, t0);
 
-	return (dir ? ttree : ftree) ->getrate_test(event, t0);
-*/
-return 0.0;
+	if(dir){
+		return ttree -> getrate_test(event, t0, testindexes, jointstate, index+1);
+	}
+	else{
+		return ftree -> getrate_test(event, t0, testindexes, jointstate, index+testindexes[index]);
+	}
 
 }
 
@@ -286,6 +284,14 @@ void pcim::StateInit(std::vector<shptr<generic_state> > &jointstate) const{
 	cerr<<"!!!!!!!!!!"<<endl;
 	ttree -> StateInit(jointstate);
 	ftree -> StateInit(jointstate);	
+}
+
+void pcim::getnewstates(std::vector<shptr<generic_state> > &jointstate, std::vector<int> &testindexes, int event, double t0, int index) const{
+	if(!test) {return;}
+	jointstate[index] = test->stateupdate(jointstate[index], event, t0);
+	ttree -> getnewstates(jointstate, testindexes, event, t0, index+1);
+	ftree -> getnewstates(jointstate, testindexes, event, t0, index+testindexes[index]);
+	
 }
 
 void pcim::print(ostream &os) const {

@@ -82,7 +82,6 @@ protected:
 	double getnextevent(double t0, int &event) const;
 	bool IsVirtual(double t0, int event, int varid) const;
 	double Getkeepprob(double rate, double t0) const;
-	//vector<ssum> StateInit(pcim *m) const;
 
 	template<typename R>
 	void Thinning(int varid, R &rand) const{
@@ -94,7 +93,7 @@ protected:
 		unsigned T_event = 0; //event count
 		vector<int> testindexes(10);
 		m->Makeindex(testindexes,0);
-		vector<shptr<generic_state> > jointstate;
+		vector<shptr<generic_state> > jointstate, jointstate1;//temp container of one joint state
 		m->StateInit(jointstate);
 
 		cerr<<"testindex:"<<endl;
@@ -109,22 +108,21 @@ protected:
 			cerr<<endl;
 		}
 
-
-/*		map<vector<ssum*>, double, ssumpcomp> timestate;
-		timestate.insert(pair<vector<ssum*>, double>(jointstate, 0.0));
+		map<vector<shptr<generic_state> >, double, ssumpcomp> timestate; //state table at one time,temp
+		vector<map<vector<shptr<generic_state> >, double, ssumpcomp> > allstates;
+		timestate.insert(pair<vector<shptr<generic_state> >, double>(jointstate, 1.0));//initial state
+		allstates.push_back(timestate);
 		cout<<"size: "<<jointstate.size()<<endl;
 		cout<<"value:"<<timestate.begin()->second<<endl;
-		//for(int i = 0; i<jointstate.size(); i++){ //should delete vector<map> at the end
-		//	delete jointstate[i];
-		//}
-		jointstate.clear();
 
-		m->StateInit(jointstate, testindexes, 1);
+		//jointstate.clear();
 
-		auto it = timestate.find(jointstate); 
-		if(it != timestate.end()){
-			it->second = 1.0;
-		} 
+		//m->StateInit(jointstate);
+
+		//auto it = timestate.find(jointstate); 
+		//if(it != timestate.end()){
+		//	it->second = 1.0;
+		//} 
 
 
 		cout<<"size: "<<jointstate.size()<<endl;
@@ -135,28 +133,96 @@ protected:
 		int event = varid;
 		//cerr<<"t0:"<<t0<<endl;
 		for(;;) { //until the last event
-			t0 = getnextevent(t0, event); 
+			T_event++; //push time (event count) forward
+			timestate.clear();
+			t0 = getnextevent(t0, event); //event gets the next event label
 			if(t0 == -1.0) break;
 			bool isvirtual = IsVirtual(t0, event, varid);
 			if(isvirtual){
 				//get actual rate
 				//cerr<<"event: "<<event<<"t0:"<<t0<<endl;
-				//double rate = m->getrate_test(event, t0);
-				//cerr<<"actual rate: "<<rate<<endl;
-				//double p_keep = Getkeepprob(rate, t0);
-				double p_keep = Getkeepprob(m->getrate_test(event, t0), t0);
-				//cerr<<"p_keep: "<<p_keep<<endl;
-				if(unifdist(rand) <= p_keep){ //case: keep event
-					
 				
-				}
+				//for each exsiting state
+				for(auto iter = allstates[T_event-1].begin(); iter!=allstates[T_event-1].end();iter++){
+					jointstate = iter->first;
+					double p_previous = iter->second;
+					
+					double rate = m->getrate_test(event, t0, testindexes, jointstate, 0);
+					cerr<<"actual rate: "<<rate<<endl;
+					double p_keep = Getkeepprob(rate, t0);
+					//double p_keep = Getkeepprob(m->getrate_test(event, t0, testindexes), t0);
+					cerr<<"p_keep: "<<p_keep<<endl;
+	
+					//case: keep event
+					jointstate1 = jointstate;
+					m->getnewstates(jointstate, testindexes, event, t0, 0);
+
+					auto it = timestate.find(jointstate); 
+						if(it != timestate.end())
+							it->second = it->second + (p_previous*p_keep);
+						else
+							timestate.insert(pair<vector<shptr<generic_state> >, double>(jointstate, p_previous*p_keep));		
+					
+
+	
+					/*for(int i = 0; i<jointstate.size(); i++){
+						cerr<<"content: ";
+						jointstate[i]->print();
+						cerr<<endl;
+					}*/
+					
+					//case: do not keep event
+					jointstate = jointstate1;
+					m->getnewstates(jointstate, testindexes, -1, t0, 0);
+					it = timestate.find(jointstate); 
+						if(it != timestate.end())
+							it->second = it->second + (p_previous*(1-p_keep));
+						else
+							timestate.insert(pair<vector<shptr<generic_state> >, double>(jointstate, p_previous*(1-p_keep)));		
+					
+	
+					/*for(int i = 0; i<jointstate.size(); i++){
+						cerr<<"content: ";
+						jointstate[i]->print();
+						cerr<<endl;
+					}*/
+				}	
 			}
 			else{//evidence
-				
+				for(auto iter = allstates[T_event-1].begin(); iter!=allstates[T_event-1].end();iter++){
+					jointstate = iter->first;
+					double p_previous = iter->second;
+			 		m->getnewstates(jointstate, testindexes, event, t0, 0);
+
+					auto it = timestate.find(jointstate); 
+						if(it != timestate.end())
+							it->second = it->second + (p_previous);
+						else
+							timestate.insert(pair<vector<shptr<generic_state> >, double>(jointstate, p_previous));		
+					
+				}
 			}
 			//cerr<<"time: "<<t0<<" event: "<<event<<endl;
 			//cerr<<"virtual? "<<isvirtual<<endl;
-		}*/
+			allstates.push_back(timestate);
+			//cerr<<"!!!!!!!!!"<<allstates.size()<<endl;
+
+
+
+		}
+
+
+			for(int i=0; i<allstates.size(); i++){
+				cerr<<"states at time "<<i<<endl;
+				for(auto iter = allstates[i].begin(); iter!=allstates[i].end();iter++){
+					for(int i = 0; i<iter->first.size(); i++){
+						cerr<<"content: ";
+						iter->first[i]->print();
+						cerr<<endl;
+					}
+					cerr<<"with P: "<<iter->second<<endl<<endl;
+				}
+			}
 	}//end of Thinning
 
 	// Resample the entire trajectory of v given all the other variables' full trajectory.
