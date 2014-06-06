@@ -62,7 +62,6 @@ struct vartrajrange {
 
 class generic_state{ //for test state
 public:
-	//virtual bool getdecision(ssum &teststate, int var, double t) const {};
 	virtual shptr<generic_state> getnewstate(shptr<generic_state>, double t, int var) const{};
 	virtual shptr<generic_state> initialize() {};
 	virtual std::string getsig() {return "empty";};
@@ -73,10 +72,8 @@ public:
 
 class state_double : public generic_state{
 public:
-	//virtual bool getdecision(ssum &teststate, int var, double t) const {}
 	state_double(){lasttime=-100;}
 	state_double(double time) {lasttime = time;}
-	//virtual shptr<generic_state> getnewstate(shptr<generic_state>, double t, int var) const{}
 	virtual shptr<generic_state> initialize()  { return boost::make_shared<state_double>(); 
 	}	
 	virtual std::string getsig() {return "ssum_double";}	
@@ -94,22 +91,15 @@ class state_double1 : public generic_state{
 public:
 	state_double1(){lasttime=-100;}
 	state_double1(double time) {lasttime = time;}
-	//virtual shptr<generic_state> getnewstate(shptr<generic_state>, double t, int var) const{}
 	virtual shptr<generic_state> initialize()  { return boost::make_shared<state_double1>(); 
 	}
 	virtual std::string getsig() {return "ssum_double1";}	
 	virtual void print() const{std::cerr<<"double1: "<<lasttime<<std::endl;}
 	virtual bool isequal(shptr<generic_state> rhs) const{
-		std::cerr<<"???????"<<std::endl;
-		//std::cerr<<"1:"<<dynamic_cast<ssum_double1*>(rhs)->lasttime<<std::endl;
-		std::cerr<<"1:"<<rhs->getsig()<<std::endl;
 		return this->lasttime == boost::dynamic_pointer_cast<state_double1>(rhs)->lasttime;
-		std::cerr<<"???????"<<std::endl;
 	}
 	virtual bool islessthan(shptr<generic_state> rhs) const{
-		std::cerr<<"!!!!!!!"<<std::endl;
 		return this->lasttime < boost::dynamic_pointer_cast<state_double1>(rhs)->lasttime;
-		std::cerr<<"!!!!!!!"<<std::endl;
 	}
 	double lasttime;
 };
@@ -570,7 +560,7 @@ public:
 		}
 		else{
 			if(lasttime1 < t0 - maxlag)
-					return boost::make_shared<state_double1>(); 
+				return boost::make_shared<state_double1>(); 
 			else
 				return state;
 		}	
@@ -814,6 +804,7 @@ public:
 	void StateInit(std::vector<shptr<generic_state> > &jointstate) const;
 	int Makeindex(std::vector<int> &indexes, int i) const;
 	void getnewstates(std::vector<shptr<generic_state> > &jointstate, std::vector<int> &testindexes, int event, double t0, int index) const;
+	int counttest() const;
 	void print(std::ostream &os) const;
 	void print(std::ostream &os, const datainfo &info) const;
 	void todot(std::ostream &os, const datainfo &info) const;

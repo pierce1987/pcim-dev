@@ -91,9 +91,12 @@ protected:
 
 		//forward pass
 		unsigned T_event = 0; //event count
-		vector<int> testindexes(10);
+		int numoftests = m->counttest();
+		vector<int> testindexes(numoftests);
+		
 		m->Makeindex(testindexes,0);
 		vector<shptr<generic_state> > jointstate, jointstate1;//temp container of one joint state
+
 		m->StateInit(jointstate);
 
 		cerr<<"testindex:"<<endl;
@@ -109,7 +112,9 @@ protected:
 		}
 
 		map<vector<shptr<generic_state> >, double, ssumpcomp> timestate; //state table at one time,temp
+		map<vector<shptr<generic_state> >, vector<pair<vector<shptr<generic_state> >, double> >, ssumpcomp> transmap;//state transition at one time
 		vector<map<vector<shptr<generic_state> >, double, ssumpcomp> > allstates;
+		vector<map<vector<shptr<generic_state> >, vector<pair<vector<shptr<generic_state> >, double> >, ssumpcomp> > alltrans;
 		timestate.insert(pair<vector<shptr<generic_state> >, double>(jointstate, 1.0));//initial state
 		allstates.push_back(timestate);
 		cout<<"size: "<<jointstate.size()<<endl;
@@ -135,6 +140,7 @@ protected:
 		for(;;) { //until the last event
 			T_event++; //push time (event count) forward
 			timestate.clear();
+			transmap.clear();
 			t0 = getnextevent(t0, event); //event gets the next event label
 			if(t0 == -1.0) break;
 			bool isvirtual = IsVirtual(t0, event, varid);
@@ -154,38 +160,48 @@ protected:
 					cerr<<"p_keep: "<<p_keep<<endl;
 	
 					//case: keep event
-					jointstate1 = jointstate;
+					jointstate1 = jointstate;//jointstate1: the previous state
 					m->getnewstates(jointstate, testindexes, event, t0, 0);
 
 					auto it = timestate.find(jointstate); 
-						if(it != timestate.end())
-							it->second = it->second + (p_previous*p_keep);
-						else
-							timestate.insert(pair<vector<shptr<generic_state> >, double>(jointstate, p_previous*p_keep));		
+					if(it != timestate.end())
+						it->second = it->second + (p_previous*p_keep);
+					else
+						timestate.insert(pair<vector<shptr<generic_state> >, double>(jointstate, p_previous*p_keep));		
 					
 
-	
-					/*for(int i = 0; i<jointstate.size(); i++){
-						cerr<<"content: ";
-						jointstate[i]->print();
-						cerr<<endl;
-					}*/
+					auto transit = transmap.find(jointstate); 
+					if(transit != transmap.end()){
+						(transit->second).push_back(pair<vector<shptr<generic_state> >, double>(jointstate1, p_previous*p_keep));
+					}
+						
+					else{
+						vector<pair<vector<shptr<generic_state> >, double> > tempvec;
+						tempvec.push_back(pair<vector<shptr<generic_state> >, double>(jointstate1, p_previous*p_keep));
+						transmap.insert(pair<vector<shptr<generic_state> >, vector<pair<vector<shptr<generic_state> >, double> > >(jointstate, tempvec));		
+					}
 					
 					//case: do not keep event
 					jointstate = jointstate1;
 					m->getnewstates(jointstate, testindexes, -1, t0, 0);
 					it = timestate.find(jointstate); 
-						if(it != timestate.end())
-							it->second = it->second + (p_previous*(1-p_keep));
-						else
-							timestate.insert(pair<vector<shptr<generic_state> >, double>(jointstate, p_previous*(1-p_keep)));		
+					if(it != timestate.end())
+						it->second = it->second + (p_previous*(1-p_keep));
+					else
+						timestate.insert(pair<vector<shptr<generic_state> >, double>(jointstate, p_previous*(1-p_keep)));		
 					
 	
-					/*for(int i = 0; i<jointstate.size(); i++){
-						cerr<<"content: ";
-						jointstate[i]->print();
-						cerr<<endl;
-					}*/
+					transit = transmap.find(jointstate); 
+					if(transit != transmap.end()){
+						(transit->second).push_back(pair<vector<shptr<generic_state> >, double>(jointstate1, p_previous*(1-p_keep)));
+					}
+						
+					else{
+						vector<pair<vector<shptr<generic_state> >, double> > tempvec;
+						tempvec.push_back(pair<vector<shptr<generic_state> >, double>(jointstate1, p_previous*(1-p_keep)));
+						transmap.insert(pair<vector<shptr<generic_state> >, vector<pair<vector<shptr<generic_state> >, double> > >(jointstate, tempvec));		
+					}
+
 				}	
 			}
 			else{//evidence
@@ -195,24 +211,33 @@ protected:
 			 		m->getnewstates(jointstate, testindexes, event, t0, 0);
 
 					auto it = timestate.find(jointstate); 
-						if(it != timestate.end())
-							it->second = it->second + (p_previous);
-						else
-							timestate.insert(pair<vector<shptr<generic_state> >, double>(jointstate, p_previous));		
+					if(it != timestate.end())
+						it->second = it->second + (p_previous);
+					else
+						timestate.insert(pair<vector<shptr<generic_state> >, double>(jointstate, p_previous));	
+
+
+					auto transit = transmap.find(jointstate); 
+					if(transit != transmap.end()){
+						(transit->second).push_back(pair<vector<shptr<generic_state> >, double>(jointstate1, p_previous));
+					}
+						
+					else{
+						vector<pair<vector<shptr<generic_state> >, double> > tempvec;
+						tempvec.push_back(pair<vector<shptr<generic_state> >, double>(jointstate1, p_previous));
+						transmap.insert(pair<vector<shptr<generic_state> >, vector<pair<vector<shptr<generic_state> >, double> > >(jointstate, tempvec));		
+					}	
 					
 				}
 			}
 			//cerr<<"time: "<<t0<<" event: "<<event<<endl;
-			//cerr<<"virtual? "<<isvirtual<<endl;
 			allstates.push_back(timestate);
-			//cerr<<"!!!!!!!!!"<<allstates.size()<<endl;
-
-
+			alltrans.push_back(transmap);
 
 		}
 
 
-			for(int i=0; i<allstates.size(); i++){
+			/*for(int i=0; i<allstates.size(); i++){
 				cerr<<"states at time "<<i<<endl;
 				for(auto iter = allstates[i].begin(); iter!=allstates[i].end();iter++){
 					for(int i = 0; i<iter->first.size(); i++){
@@ -222,6 +247,34 @@ protected:
 					}
 					cerr<<"with P: "<<iter->second<<endl<<endl;
 				}
+			}
+*/
+			for(int i=0; i<alltrans.size(); i++){
+				cerr<<"states at time "<<i<<endl;
+				for(auto iter = alltrans[i].begin(); iter!=alltrans[i].end();iter++){
+					for (auto it2 = iter->second.begin(); it2 != iter->second.end(); it2++){
+						cerr<<"trans to "<<endl;
+
+						for(int i = 0; i<iter->first.size(); i++){
+							cerr<<"content: ";
+							iter->first[i]->print();
+							cerr<<endl;
+						}
+
+						cerr<<"from"<<endl;
+
+						//it2->first->print();
+						for(int i = 0; i<it2->first.size(); i++){
+							cerr<<"content: ";
+							it2->first[i]->print();
+							cerr<<endl;
+						}
+
+						cerr<<"with P: "<<(it2->second)<<endl;
+					}
+
+				}
+				cerr<<endl;
 			}
 	}//end of Thinning
 

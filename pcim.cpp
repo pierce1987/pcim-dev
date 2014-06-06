@@ -278,20 +278,22 @@ int pcim::Makeindex(vector<int> &indexes, int i) const{
 }
 
 void pcim::StateInit(std::vector<shptr<generic_state> > &jointstate) const{
-	if(!test) {return;}
-	
+	if(!test) {return;}	
 	jointstate.push_back(test->getteststate()->initialize());
-	cerr<<"!!!!!!!!!!"<<endl;
 	ttree -> StateInit(jointstate);
 	ftree -> StateInit(jointstate);	
+}
+
+int pcim::counttest() const{
+	if(!test) return 0;
+	return 1 + ttree -> counttest() + ftree->counttest();
 }
 
 void pcim::getnewstates(std::vector<shptr<generic_state> > &jointstate, std::vector<int> &testindexes, int event, double t0, int index) const{
 	if(!test) {return;}
 	jointstate[index] = test->stateupdate(jointstate[index], event, t0);
 	ttree -> getnewstates(jointstate, testindexes, event, t0, index+1);
-	ftree -> getnewstates(jointstate, testindexes, event, t0, index+testindexes[index]);
-	
+	ftree -> getnewstates(jointstate, testindexes, event, t0, index+testindexes[index]);	
 }
 
 void pcim::print(ostream &os) const {
