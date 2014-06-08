@@ -20,6 +20,7 @@ struct ssumpcomp{
 
 //not used now
 bool IsInUnobserved(std::vector<double> &starts, std::vector<double> &ends, double t);
+bool GetPreviousState(map<vector<shptr<generic_state> >, vector<pair<vector<shptr<generic_state> >, pair<double,bool> > >, ssumpcomp> &transmap, vector<shptr<generic_state> > &jointstate, double prob);
 
 class GibbsAuxSampler{
 
@@ -76,6 +77,7 @@ protected:
 
 	// Sample initial trajectory that agrees with evidence *evid.
 	void SampleInitialTrajectory() const;
+	void Clearcurrentvar(int var) const;
 	void GetUnobservedIntervals(int varid) const;
 	void GetAuxRates(int varid, int card) const;
 	void ClearInitTraj();
@@ -90,7 +92,7 @@ protected:
 			return;
 
 		//forward pass
-		unsigned T_event = 0; //event count
+		int T_event = 0; //event count
 		int numoftests = m->counttest();
 		vector<int> testindexes(numoftests);
 		
@@ -101,24 +103,25 @@ protected:
 
 		cerr<<"testindex:"<<endl;
 		for(int i=0; i<testindexes.size(); i++){
-			cout<<testindexes[i]<<" ";
+			cerr<<testindexes[i]<<" ";
 		}
-		cout<<endl;
+		cerr<<endl;
 
 		for(int i = 0; i<jointstate.size(); i++){
 			cerr<<"content: ";
 			jointstate[i]->print();
 			cerr<<endl;
 		}
-
+		
+		vector<double> times;
 		map<vector<shptr<generic_state> >, double, ssumpcomp> timestate; //state table at one time,temp
-		map<vector<shptr<generic_state> >, vector<pair<vector<shptr<generic_state> >, double> >, ssumpcomp> transmap;//state transition at one time
+		map<vector<shptr<generic_state> >, vector<pair<vector<shptr<generic_state> >, pair<double,bool> > >, ssumpcomp> transmap;//state transition at one time
 		vector<map<vector<shptr<generic_state> >, double, ssumpcomp> > allstates;
-		vector<map<vector<shptr<generic_state> >, vector<pair<vector<shptr<generic_state> >, double> >, ssumpcomp> > alltrans;
+		vector<map<vector<shptr<generic_state> >, vector<pair<vector<shptr<generic_state> >, pair<double,bool> > >, ssumpcomp> > alltrans;
 		timestate.insert(pair<vector<shptr<generic_state> >, double>(jointstate, 1.0));//initial state
 		allstates.push_back(timestate);
-		cout<<"size: "<<jointstate.size()<<endl;
-		cout<<"value:"<<timestate.begin()->second<<endl;
+		cerr<<"size: "<<jointstate.size()<<endl;
+		cerr<<"value:"<<timestate.begin()->second<<endl;
 
 		//jointstate.clear();
 
@@ -130,19 +133,21 @@ protected:
 		//} 
 
 
-		cout<<"size: "<<jointstate.size()<<endl;
-		cout<<"value:"<<timestate.begin()->second<<endl;
-		cout<<"MAPSIZE:"<<timestate.size()<<endl;
+		cerr<<"size: "<<jointstate.size()<<endl;
+		cerr<<"value:"<<timestate.begin()->second<<endl;
+		cerr<<"MAPSIZE:"<<timestate.size()<<endl;
 
 		double t0 = starts[0]-0.001;
 		int event = varid;
 		//cerr<<"t0:"<<t0<<endl;
 		for(;;) { //until the last event
-			T_event++; //push time (event count) forward
+		
 			timestate.clear();
 			transmap.clear();
 			t0 = getnextevent(t0, event); //event gets the next event label
 			if(t0 == -1.0) break;
+			times.push_back(t0);
+			T_event++; //push time (event count) forward
 			bool isvirtual = IsVirtual(t0, event, varid);
 			if(isvirtual){
 				//get actual rate
@@ -172,13 +177,13 @@ protected:
 
 					auto transit = transmap.find(jointstate); 
 					if(transit != transmap.end()){
-						(transit->second).push_back(pair<vector<shptr<generic_state> >, double>(jointstate1, p_previous*p_keep));
+						(transit->second).push_back(pair<vector<shptr<generic_state> >, pair<double,bool> >(jointstate1, make_pair(p_previous*p_keep,true)));
 					}
 						
 					else{
-						vector<pair<vector<shptr<generic_state> >, double> > tempvec;
-						tempvec.push_back(pair<vector<shptr<generic_state> >, double>(jointstate1, p_previous*p_keep));
-						transmap.insert(pair<vector<shptr<generic_state> >, vector<pair<vector<shptr<generic_state> >, double> > >(jointstate, tempvec));		
+						vector<pair<vector<shptr<generic_state> >, pair<double,bool> > > tempvec;
+						tempvec.push_back(pair<vector<shptr<generic_state> >, pair<double,bool> >(jointstate1, make_pair(p_previous*p_keep,true)));
+						transmap.insert(pair<vector<shptr<generic_state> >, vector<pair<vector<shptr<generic_state> >, pair<double,bool> > > >(jointstate, tempvec));		
 					}
 					
 					//case: do not keep event
@@ -193,20 +198,22 @@ protected:
 	
 					transit = transmap.find(jointstate); 
 					if(transit != transmap.end()){
-						(transit->second).push_back(pair<vector<shptr<generic_state> >, double>(jointstate1, p_previous*(1-p_keep)));
+						(transit->second).push_back(pair<vector<shptr<generic_state> >, pair<double,bool> >(jointstate1, make_pair(p_previous*(1-p_keep),false)));
 					}
 						
 					else{
-						vector<pair<vector<shptr<generic_state> >, double> > tempvec;
-						tempvec.push_back(pair<vector<shptr<generic_state> >, double>(jointstate1, p_previous*(1-p_keep)));
-						transmap.insert(pair<vector<shptr<generic_state> >, vector<pair<vector<shptr<generic_state> >, double> > >(jointstate, tempvec));		
+						vector<pair<vector<shptr<generic_state> >, pair<double,bool> > > tempvec;
+						tempvec.push_back(pair<vector<shptr<generic_state> >, pair<double,bool> >(jointstate1, make_pair(p_previous*(1-p_keep),false)));
+						transmap.insert(pair<vector<shptr<generic_state> >, vector<pair<vector<shptr<generic_state> >, pair<double,bool> > > >(jointstate, tempvec));		
 					}
 
 				}	
 			}
 			else{//evidence
 				for(auto iter = allstates[T_event-1].begin(); iter!=allstates[T_event-1].end();iter++){
+					
 					jointstate = iter->first;
+					jointstate1 = jointstate;
 					double p_previous = iter->second;
 			 		m->getnewstates(jointstate, testindexes, event, t0, 0);
 
@@ -219,13 +226,13 @@ protected:
 
 					auto transit = transmap.find(jointstate); 
 					if(transit != transmap.end()){
-						(transit->second).push_back(pair<vector<shptr<generic_state> >, double>(jointstate1, p_previous));
+						(transit->second).push_back(pair<vector<shptr<generic_state> >, pair<double,bool> >(jointstate1, make_pair(p_previous,false)));
 					}
 						
 					else{
-						vector<pair<vector<shptr<generic_state> >, double> > tempvec;
-						tempvec.push_back(pair<vector<shptr<generic_state> >, double>(jointstate1, p_previous));
-						transmap.insert(pair<vector<shptr<generic_state> >, vector<pair<vector<shptr<generic_state> >, double> > >(jointstate, tempvec));		
+						vector<pair<vector<shptr<generic_state> >, pair<double,bool> > > tempvec;
+						tempvec.push_back(pair<vector<shptr<generic_state> >, pair<double,bool> >(jointstate1, make_pair(p_previous,false)));
+						transmap.insert(pair<vector<shptr<generic_state> >, vector<pair<vector<shptr<generic_state> >, pair<double,bool> > > >(jointstate, tempvec));		
 					}	
 					
 				}
@@ -234,48 +241,98 @@ protected:
 			allstates.push_back(timestate);
 			alltrans.push_back(transmap);
 
-		}
+		}//end of forward pass
 
 
-			/*for(int i=0; i<allstates.size(); i++){
-				cerr<<"states at time "<<i<<endl;
+		/*for(int i=0; i<allstates.size(); i++){
+			cerr<<"states at time "<<i<<endl;
 				for(auto iter = allstates[i].begin(); iter!=allstates[i].end();iter++){
+				for(int i = 0; i<iter->first.size(); i++){
+					cerr<<"content: ";
+					iter->first[i]->print();
+					cerr<<endl;
+				}
+				cerr<<"with P: "<<iter->second<<endl<<endl;
+			}
+		}
+		*/
+		/*for(int i=0; i<alltrans.size(); i++){
+			cerr<<"states at time "<<i<<endl;
+			for(auto iter = alltrans[i].begin(); iter!=alltrans[i].end();iter++){
+				for (auto it2 = iter->second.begin(); it2 != iter->second.end(); it2++){
+					cerr<<"trans to "<<endl;
+
 					for(int i = 0; i<iter->first.size(); i++){
 						cerr<<"content: ";
 						iter->first[i]->print();
 						cerr<<endl;
 					}
-					cerr<<"with P: "<<iter->second<<endl<<endl;
-				}
-			}
-*/
-			for(int i=0; i<alltrans.size(); i++){
-				cerr<<"states at time "<<i<<endl;
-				for(auto iter = alltrans[i].begin(); iter!=alltrans[i].end();iter++){
-					for (auto it2 = iter->second.begin(); it2 != iter->second.end(); it2++){
-						cerr<<"trans to "<<endl;
 
-						for(int i = 0; i<iter->first.size(); i++){
-							cerr<<"content: ";
-							iter->first[i]->print();
-							cerr<<endl;
-						}
-
-						cerr<<"from"<<endl;
-
-						//it2->first->print();
-						for(int i = 0; i<it2->first.size(); i++){
-							cerr<<"content: ";
-							it2->first[i]->print();
-							cerr<<endl;
-						}
-
-						cerr<<"with P: "<<(it2->second)<<endl;
+					cerr<<"from"<<endl;
+					//it2->first->print();
+					for(int i = 0; i<it2->first.size(); i++){
+						cerr<<"content: ";
+						it2->first[i]->print();
+						cerr<<endl;
 					}
 
+					cerr<<"with P: "<<(it2->second.first)<<endl;
+					cerr<<"keep?: "<<(it2->second.second)<<endl;
 				}
-				cerr<<endl;
+
 			}
+			cerr<<endl;
+		}
+
+		cerr<<T_event<<endl;
+		for(int i=0; i<times.size(); i++){
+			cerr<<times[i]<<" ";
+		}*/
+	//backward pass
+	//get final state	
+
+	double p = unifdist(rand);//0.99;
+	for(auto iter = allstates[T_event].begin(); iter != allstates[T_event].end(); iter++){
+		if(p <= iter->second){
+			jointstate = iter->first;
+			break;
+		}
+		else
+			p -= iter->second;
+	}
+
+	cerr<<"sampled final state:"<<endl;
+	for(int i = 0; i<jointstate.size(); i++){
+		cerr<<"content: ";
+		jointstate[i]->print();
+		cerr<<endl;
+	}
+	cerr<<T_event<<endl;
+	T_event--;//4
+
+	p = unifdist(rand);//0.7;
+	
+
+
+
+	for(;T_event>=0; T_event--){
+
+	bool keep = GetPreviousState(alltrans[T_event], jointstate, p);	
+	cerr<<"time: "<<times[T_event]<<endl;
+	if(keep)
+		tr.AddTransition(varid, times[T_event], 0);
+	cerr<<"previous state:"<<endl;
+	for(int i = 0; i<jointstate.size(); i++){
+		cerr<<"content: ";
+		jointstate[i]->print();
+		cerr<<endl;
+	}
+	cerr<<"keep? "<<keep<<endl;
+		
+
+	}
+	
+
 	}//end of Thinning
 
 	// Resample the entire trajectory of v given all the other variables' full trajectory.
@@ -288,12 +345,13 @@ protected:
 		GetUnobservedIntervals(var);
 		//get omega intervals (info in auxstarts, auxends, and auxrates)
 		GetAuxRates(var, context->Cardinality(var));
-		cout<<"auxrates:"<<endl;
+		cerr<<"auxrates:"<<endl;
 		for(int i = 0; i<auxstarts.size(); i++)
 		{
 			cerr<<auxrates[i]<<" in ( "<<auxstarts[i]<<","<<auxends[i]<<")"<<endl;
 		}
-		oldtr = tr;
+		oldtr = tr;//use oldtr to maintain the previous sample
+		Clearcurrentvar(var);//clear events in unobserved areas for tr! Use thinning to add events!
 		std::exponential_distribution<> expdist(1.0);
 		std::uniform_real_distribution<> unifdist(0.0,1.0);
 		std::normal_distribution<> normdist(0.0,1.0);		
@@ -305,18 +363,17 @@ protected:
 			double lastt=t;
 			while((t = m->geteventaux(tr,lastt,expdist(rand),unifdist(rand),normdist(rand),var,T,varcontext,auxstarts,auxends,auxrates))<T) {
 				//cerr<<"sampled: "<<"var: "<<var<<" t: "<<t<<endl;
-				//oldtr.AddTransition(var, t, 0);	
+				oldtr.AddTransition(var, t, 0);	
 				lastt = t; //proceed no matter event kept or not
 			}
 
 		}
 		//virtual events as
-		oldtr.AddTransition(0, 2, 0);
-		oldtr.AddTransition(0, 3, 0);
-		oldtr.AddTransition(0, 4, 0);
-		oldtr.AddTransition(0, 8, 0);
-		Thinning(var, rand);
-		tr = oldtr;
+		//oldtr.AddTransition(0, 2, 0);
+		//oldtr.AddTransition(0, 3, 0);
+		//oldtr.AddTransition(0, 4, 0);
+		//oldtr.AddTransition(0, 8, 0);
+		Thinning(var, rand); //change oldtr
 	}
 
 	int numBurninIter;

@@ -127,7 +127,7 @@ int main(int argc, char **argv) {
 	vector<ctbn::Trajectory> t;//vector of sampled trajectories
 	vector<double> w;
 	GibbsAuxSampler sampler(&truemodel, &tr, &contexts, 0); //tr is evidence, last param is burn-in round
-	sampler.SampleTrajectories(t,w,1,randgen);//3rd param: # of samples wanted
+	sampler.SampleTrajectories(t,w,10,randgen);//3rd param: # of samples wanted
 
 
 	//printtr(cout,sampler.tr,3);

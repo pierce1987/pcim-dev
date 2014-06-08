@@ -12,6 +12,29 @@ bool IsInUnobserved(std::vector<double> &starts, std::vector<double> &ends, doub
 	return false;
 }
 
+bool GetPreviousState(map<vector<shptr<generic_state> >, vector<pair<vector<shptr<generic_state> >, pair<double,bool> > >, ssumpcomp> &transmap, vector<shptr<generic_state> > &jointstate, double prob){
+	cerr<<"starting..."<<endl;
+	auto iter = transmap.find(jointstate);
+	double p_sum = 0;
+	bool keep = false;
+	for(auto iter1 = iter->second.begin(); iter1!= iter->second.end(); iter1++)
+		p_sum += iter1->second.first;
+
+	cerr<<"p_sum: "<<p_sum<<endl;
+
+	for(auto iter1 = iter->second.begin(); iter1!= iter->second.end(); iter1++){
+		if(prob <= (iter1->second.first/p_sum)){
+			jointstate = iter1->first;
+			keep = iter1->second.second;
+			break;
+		}
+		else
+			prob -= iter1->second.first/p_sum;
+	}
+
+	return keep;
+}
+
 
 double GibbsAuxSampler::getnextevent(double t0, int &event) const{
 	double min_time = 10000000000;
@@ -101,6 +124,28 @@ void GibbsAuxSampler::SampleInitialTrajectory() const {
 		}
 	}
 	//should sample in the [-1,-2] intervals, but not necessary - to do
+}
+
+void GibbsAuxSampler::Clearcurrentvar(int varid) const{
+
+	tr.SetUnknown(varid,true);
+	decltype(evid->GetVarTraj(0).begin()) it, tmpend;
+	bool shouldsave = true;
+
+	if (evid->GetVarTraj(varid).empty()) 
+		return;		
+	it = evid->GetVarTraj(varid).begin();
+	tmpend = evid->GetVarTraj(varid).end();
+	while(it!=tmpend){
+		if(shouldsave && it->second != -1)		
+			tr.AddTransition(varid, it->first, it->second);
+		if(it->second == -1)
+			shouldsave = false;
+		if(it->second == -2)
+			shouldsave = true;
+		it++;
+	}
+
 }
 
 
