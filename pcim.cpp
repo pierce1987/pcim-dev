@@ -232,6 +232,14 @@ double pcim::getratevar(const ctbn::Trajectory &tr, int var, int state, double t
 	return (dir ? ttree : ftree)->getratevar(tr,var,state,t,until,leaf);
 }
 
+double pcim::getratevar_simple(const ctbn::Trajectory &tr, int var, double t, double &until) const {
+	if (!test) {return rate;}//reached leaf
+	double til;
+	bool dir = test->eval(tr,eventtype(var, 0),t,til);
+	if (til<until) until = til;
+	return (dir ? ttree : ftree)->getratevar_simple(tr,var,t,until);
+}
+
 double pcim::getratevaraux(const ctbn::Trajectory &tr, int varid, int state, double t, double &until) const {
 	if (!test) { return rate; }
 	double til;
@@ -269,6 +277,52 @@ double pcim::getrate_test(int event, double t0, vector<int> &testindexes, vector
 	}
 
 }
+
+void pcim::Updatetraj(ctbn::Trajectory &temptr, std::vector<shptr<generic_state> > &jointstate, std::vector<int> &testindexes, int index) const{
+	if(!test) {return;}
+	test->updatetraj(jointstate[index], temptr);//need to consider -1 - to do
+	ttree -> Updatetraj(temptr, jointstate, testindexes, index+1);
+	ftree -> Updatetraj(temptr, jointstate, testindexes, index+testindexes[index]);	
+}
+
+
+double pcim::Getlikelihood(int varid, ctbn::Trajectory &temptr, std::vector<shptr<generic_state> > &jointstate, std::vector<int> &testindexes, const std::vector<int> &own_var_list, double t_previous, double t0) const{
+	//first update the traj
+	Updatetraj(temptr, jointstate, testindexes, 0);
+	//printtr(cout,temptr,3);
+	double P = 1.0;
+	for(int i = 0; i<own_var_list.size(); i++){
+		//cerr<<"t_previous: "<<t_previous<<endl;
+		//cerr<<"t0: "<<t0<<endl;
+		//cerr<<"current var: "<<own_var_list[i]<<endl;
+		//cerr<<"varid: "<<varid<<endl;
+		
+		double t = t_previous;
+		if(varid == own_var_list[i])
+			continue;
+		else{
+			while(t < t0){
+
+				double until = numeric_limits<double>::infinity();
+				double rate = getratevar_simple(temptr, own_var_list[i], t, until);
+				//cerr<<"rate: "<<rate<<endl;
+				//cerr<<"until: "<<until<<endl;
+				if(until<=t0){
+					//cerr<<"until-t: "<<until-t<<endl; 
+					P *= exp(-1*rate*(until-t));
+				}
+				else{
+					//cerr<<"t0-t: "<<t0-t<<endl; 
+					P *= exp(-1*rate*(t0-t));
+				}
+				t = until;
+			}
+		}
+	}
+	//cerr<<"aaaaaaaaaaaaaa: "<<P<<endl;
+	return P;
+}
+
 
 int pcim::Makeindex(vector<int> &indexes, int i) const{
 	if(!test) {return 0;}

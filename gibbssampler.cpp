@@ -20,7 +20,7 @@ bool GetPreviousState(map<vector<shptr<generic_state> >, vector<pair<vector<shpt
 	for(auto iter1 = iter->second.begin(); iter1!= iter->second.end(); iter1++)
 		p_sum += iter1->second.first;
 
-	cerr<<"p_sum: "<<p_sum<<endl;
+	//cerr<<"p_sum: "<<p_sum<<endl;
 
 	for(auto iter1 = iter->second.begin(); iter1!= iter->second.end(); iter1++){
 		if(prob <= (iter1->second.first/p_sum)){
@@ -114,11 +114,11 @@ void GibbsAuxSampler::SampleInitialTrajectory() const {
 		it = evid->GetVarTraj(varid).begin();
 		tmpend = evid->GetVarTraj(varid).end();
 		while(it!=tmpend){
-			if(shouldsave && it->second != -1)		
+			if(shouldsave && it->second != -2)		
 				tr.AddTransition(varid, it->first, it->second);
-			if(it->second == -1)
-				shouldsave = false;
 			if(it->second == -2)
+				shouldsave = false;
+			if(it->second == -3)
 				shouldsave = true;
 			it++;
 		}
@@ -137,11 +137,11 @@ void GibbsAuxSampler::Clearcurrentvar(int varid) const{
 	it = evid->GetVarTraj(varid).begin();
 	tmpend = evid->GetVarTraj(varid).end();
 	while(it!=tmpend){
-		if(shouldsave && it->second != -1)		
+		if(shouldsave && it->second != -2)		
 			tr.AddTransition(varid, it->first, it->second);
-		if(it->second == -1)
-			shouldsave = false;
 		if(it->second == -2)
+			shouldsave = false;
+		if(it->second == -3)
 			shouldsave = true;
 		it++;
 	}
@@ -166,9 +166,9 @@ void GibbsAuxSampler::GetUnobservedIntervals(int varid) const{
 	it = evid->GetVarTraj(varid).begin();
 	tmpend = evid->GetVarTraj(varid).end();
 	while(it!=tmpend){
-		if(it->second == -1)
-			starts.push_back(it->first);
 		if(it->second == -2)
+			starts.push_back(it->first);
+		if(it->second == -3)
 			ends.push_back(it->first);
 		it++;
 	}

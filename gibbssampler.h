@@ -47,7 +47,7 @@ public:
 		}
 	}
 
-mutable ctbn::Trajectory tr,oldtr;
+mutable ctbn::Trajectory tr,oldtr,temptr;
 
 protected:
 	template<typename R>
@@ -120,8 +120,8 @@ protected:
 		vector<map<vector<shptr<generic_state> >, vector<pair<vector<shptr<generic_state> >, pair<double,bool> > >, ssumpcomp> > alltrans;
 		timestate.insert(pair<vector<shptr<generic_state> >, double>(jointstate, 1.0));//initial state
 		allstates.push_back(timestate);
-		cerr<<"size: "<<jointstate.size()<<endl;
-		cerr<<"value:"<<timestate.begin()->second<<endl;
+		//cerr<<"size: "<<jointstate.size()<<endl;
+		//cerr<<"value:"<<timestate.begin()->second<<endl;
 
 		//jointstate.clear();
 
@@ -133,11 +133,12 @@ protected:
 		//} 
 
 
-		cerr<<"size: "<<jointstate.size()<<endl;
-		cerr<<"value:"<<timestate.begin()->second<<endl;
-		cerr<<"MAPSIZE:"<<timestate.size()<<endl;
+		//cerr<<"size: "<<jointstate.size()<<endl;
+		//cerr<<"value:"<<timestate.begin()->second<<endl;
+		//cerr<<"MAPSIZE:"<<timestate.size()<<endl;
 
-		double t0 = starts[0]-0.001;
+		double t0 = 0;//starts[0]-0.001;
+		double t_previous = 0;
 		int event = varid;
 		//cerr<<"t0:"<<t0<<endl;
 		for(;;) { //until the last event
@@ -157,12 +158,13 @@ protected:
 				for(auto iter = allstates[T_event-1].begin(); iter!=allstates[T_event-1].end();iter++){
 					jointstate = iter->first;
 					double p_previous = iter->second;
-					
+					temptr =  ctbn::Trajectory();
+					p_previous *= m->Getlikelihood(varid, temptr, jointstate, testindexes, own_var_list, t_previous, t0);
 					double rate = m->getrate_test(event, t0, testindexes, jointstate, 0);
-					cerr<<"actual rate: "<<rate<<endl;
+					//cerr<<"actual rate: "<<rate<<endl;
 					double p_keep = Getkeepprob(rate, t0);
 					//double p_keep = Getkeepprob(m->getrate_test(event, t0, testindexes), t0);
-					cerr<<"p_keep: "<<p_keep<<endl;
+					//cerr<<"p_keep: "<<p_keep<<endl;
 	
 					//case: keep event
 					jointstate1 = jointstate;//jointstate1: the previous state
@@ -195,7 +197,6 @@ protected:
 					else
 						timestate.insert(pair<vector<shptr<generic_state> >, double>(jointstate, p_previous*(1-p_keep)));		
 					
-	
 					transit = transmap.find(jointstate); 
 					if(transit != transmap.end()){
 						(transit->second).push_back(pair<vector<shptr<generic_state> >, pair<double,bool> >(jointstate1, make_pair(p_previous*(1-p_keep),false)));
@@ -211,11 +212,23 @@ protected:
 			}
 			else{//evidence
 				for(auto iter = allstates[T_event-1].begin(); iter!=allstates[T_event-1].end();iter++){
-					
+					cerr<<"!!!!!!!!!!!!!!"<<endl;
 					jointstate = iter->first;
 					jointstate1 = jointstate;
 					double p_previous = iter->second;
+
+					temptr =  ctbn::Trajectory();
+					double rate = m->getrate_test(event, t0, testindexes, jointstate, 0);//rate of evidence event
+					cerr<<"previous1: "<<p_previous<<endl;
+					p_previous *= m->Getlikelihood(varid, temptr, jointstate, testindexes, own_var_list, t_previous, t0);
+					cerr<<"previous2: "<<p_previous<<endl;
+					p_previous *= rate;//evidence needs this
+					cerr<<"previous3: "<<p_previous<<endl;
+
+
 			 		m->getnewstates(jointstate, testindexes, event, t0, 0);
+
+
 
 					auto it = timestate.find(jointstate); 
 					if(it != timestate.end())
@@ -240,13 +253,14 @@ protected:
 			//cerr<<"time: "<<t0<<" event: "<<event<<endl;
 			allstates.push_back(timestate);
 			alltrans.push_back(transmap);
+			t_previous = t0;
 
 		}//end of forward pass
 
 
-		/*for(int i=0; i<allstates.size(); i++){
+		for(int i=0; i<allstates.size(); i++){
 			cerr<<"states at time "<<i<<endl;
-				for(auto iter = allstates[i].begin(); iter!=allstates[i].end();iter++){
+			for(auto iter = allstates[i].begin(); iter!=allstates[i].end();iter++){
 				for(int i = 0; i<iter->first.size(); i++){
 					cerr<<"content: ";
 					iter->first[i]->print();
@@ -255,8 +269,8 @@ protected:
 				cerr<<"with P: "<<iter->second<<endl<<endl;
 			}
 		}
-		*/
-		/*for(int i=0; i<alltrans.size(); i++){
+		
+		for(int i=0; i<alltrans.size(); i++){
 			cerr<<"states at time "<<i<<endl;
 			for(auto iter = alltrans[i].begin(); iter!=alltrans[i].end();iter++){
 				for (auto it2 = iter->second.begin(); it2 != iter->second.end(); it2++){
@@ -287,18 +301,22 @@ protected:
 		cerr<<T_event<<endl;
 		for(int i=0; i<times.size(); i++){
 			cerr<<times[i]<<" ";
-		}*/
+		}
 	//backward pass
 	//get final state	
 
-	double p = unifdist(rand);//0.99;
+	double p = 0.2;//unifdist(rand);//0.99;
+	double sump_final = 0.;
 	for(auto iter = allstates[T_event].begin(); iter != allstates[T_event].end(); iter++){
-		if(p <= iter->second){
+		sump_final += iter->second;
+	}
+	for(auto iter = allstates[T_event].begin(); iter != allstates[T_event].end(); iter++){
+		if(p <= iter->second/sump_final){
 			jointstate = iter->first;
 			break;
 		}
 		else
-			p -= iter->second;
+			p -= iter->second/sump_final;
 	}
 
 	cerr<<"sampled final state:"<<endl;
@@ -310,7 +328,7 @@ protected:
 	cerr<<T_event<<endl;
 	T_event--;//4
 
-	p = unifdist(rand);//0.7;
+	p = 0.7;//unifdist(rand);//0.7;
 	
 
 
@@ -321,13 +339,13 @@ protected:
 	cerr<<"time: "<<times[T_event]<<endl;
 	if(keep)
 		tr.AddTransition(varid, times[T_event], 0);
-	cerr<<"previous state:"<<endl;
+/*	cerr<<"previous state:"<<endl;
 	for(int i = 0; i<jointstate.size(); i++){
 		cerr<<"content: ";
 		jointstate[i]->print();
 		cerr<<endl;
 	}
-	cerr<<"keep? "<<keep<<endl;
+	cerr<<"keep? "<<keep<<endl;*/
 		
 
 	}
@@ -363,16 +381,16 @@ protected:
 			double lastt=t;
 			while((t = m->geteventaux(tr,lastt,expdist(rand),unifdist(rand),normdist(rand),var,T,varcontext,auxstarts,auxends,auxrates))<T) {
 				//cerr<<"sampled: "<<"var: "<<var<<" t: "<<t<<endl;
-				oldtr.AddTransition(var, t, 0);	
+				//oldtr.AddTransition(var, t, 0);	
 				lastt = t; //proceed no matter event kept or not
 			}
 
 		}
 		//virtual events as
-		//oldtr.AddTransition(0, 2, 0);
-		//oldtr.AddTransition(0, 3, 0);
-		//oldtr.AddTransition(0, 4, 0);
-		//oldtr.AddTransition(0, 8, 0);
+		oldtr.AddTransition(0, 2, 0);
+		oldtr.AddTransition(0, 3, 0);
+		oldtr.AddTransition(0, 4, 0);
+		oldtr.AddTransition(0, 8, 0);
 		Thinning(var, rand); //change oldtr
 	}
 

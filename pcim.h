@@ -121,6 +121,7 @@ public:
 	virtual bool getdecision(shptr<generic_state> teststate, int var, double t) const{};
 	virtual shptr<generic_state> stateupdate(shptr<generic_state> &teststate, int event, double t0) const{};
 	virtual generic_state* getteststate() = 0;
+	virtual void updatetraj(shptr<generic_state> teststate, ctbn::Trajectory &temptr) {};
 
 private:
 	
@@ -482,7 +483,7 @@ public:
 		auto i0 = vtr.lower_bound(t0);
 		auto i1 = vtr.lower_bound(t1);
 		typename D::statT stat;
-		for(auto i=i0;i!=i1;i++) if(s == -1 || i->second == s) stat.add(i->first,i->second);
+		for(auto i=i0;i!=i1;i++) if((s == -1 || i->second == s)) {std::cerr<<"adding.."<<std::endl;stat.add(i->first,i->second);}
 		until = std::min(i0!=e ? i0->first+maxlag
 						: std::numeric_limits<double>::infinity(),
 				i1!=e ? i1->first+minlag
@@ -550,7 +551,7 @@ public:
 	virtual shptr<generic_state> stateupdate(shptr<generic_state> &state, int event, double t0) const{
 		double lasttime1 = boost::dynamic_pointer_cast<state_double1>(state)->lasttime;
 		if(event == auxv){
-			if(event == -1){
+			if(event == -1){//????
 				if(lasttime1 < t0 - maxlag)
 					return boost::make_shared<state_double1>(); 
 			}
@@ -564,6 +565,12 @@ public:
 			else
 				return state;
 		}	
+	}
+
+	virtual void updatetraj(shptr<generic_state> teststate, ctbn::Trajectory &temptr) {
+		double lasttime1 = boost::dynamic_pointer_cast<state_double1>(teststate)->lasttime;
+		if(lasttime1>=0)
+		temptr.AddTransition(auxv, lasttime1, 0);
 	}
 	
 protected:
@@ -801,6 +808,8 @@ public:
 	double geteventaux(const ctbn::Trajectory &tr, double &t, double expsamp, double unisamp, double normsamp,
 					int &var, double maxt, const ctbn::Context &contexts, std::vector<double> &auxstarts, std::vector<double> &auxends, std::vector<double> &auxrates) const;
 	double getrate_test(int event, double t0, std::vector<int> &testindexes, std::vector<shptr<generic_state> > &jointstate, int index) const;
+	void Updatetraj(ctbn::Trajectory &temptr, std::vector<shptr<generic_state> > &jointstate, std::vector<int> &testindexes, int index) const;
+	double Getlikelihood(int varid, ctbn::Trajectory &temptr, std::vector<shptr<generic_state> > &jointstate, std::vector<int> &testindexes, const std::vector<int> &own_var_list, double t_previous, double t0) const;
 	void StateInit(std::vector<shptr<generic_state> > &jointstate) const;
 	int Makeindex(std::vector<int> &indexes, int i) const;
 	void getnewstates(std::vector<shptr<generic_state> > &jointstate, std::vector<int> &testindexes, int event, double t0, int index) const;
@@ -845,6 +854,7 @@ private:
 	void calcleaf(const ss &d, const pcimparams &p);
 
 	double getratevar(const ctbn::Trajectory &tr, int var, int state, double t, double &until, const pcim *&leaf) const;
+	double getratevar_simple(const ctbn::Trajectory &tr, int var, double t, double &until) const;
 	double getratevaraux(const ctbn::Trajectory &tr, int varid, int state, double t, double &until) const;
 
 

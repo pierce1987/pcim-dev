@@ -44,8 +44,8 @@ int main(int argc, char **argv) {
 				new pcim(new eventtest(-1, 1),new pcim(3),new pcim(4)));
 */
 
-	pcim truemodel(new varcounttest(1, 0, 0.0, 5.0),
-				new pcim(1),
+	pcim truemodel(new varcounttest(1, 0, 0.0, 5.0),				
+				new pcim(1),				
 				new pcim(new varcounttest(1, 1, 0.0, 1.0),new pcim(2),new pcim(3)));
 
 	truemodel.print(cout); cout << endl;
@@ -119,15 +119,28 @@ int main(int argc, char **argv) {
 	tr.AddTransition(1, 4, -1);
 	tr.AddTransition(1, 5, -2);*/
 
-	tr.AddTransition(0, 1, -1);
-	tr.AddTransition(0, 10, -2);
-	//tr.AddTransition(0, 3, 0);
+	tr.AddTransition(0, 1, -2);
+	tr.AddTransition(0, 10, -3);
+	//tr.AddTransition(0, 1, 0);
 	tr.AddTransition(1, 5, 0);
+	//tr.AddTransition(0, 1, 0);
+	//tr.AddTransition(0, 2, 0);
+	/*tr.AddTransition(1, 7.0, 0);
+	tr.AddTransition(1, 7.1, 0);
+	tr.AddTransition(1, 7.2, 0);
+	tr.AddTransition(1, 7.3, 0);
+	tr.AddTransition(1, 7.4, 0);
+	tr.AddTransition(1, 7.5, 0);
+tr.AddTransition(1, 7.6, 0);
+tr.AddTransition(1, 7.7, 0);
+tr.AddTransition(1, 7.8, 0);
+tr.AddTransition(1, 7.9, 0);*/
+        //tr.AddTransition(1, 10, 0);
 
 	vector<ctbn::Trajectory> t;//vector of sampled trajectories
 	vector<double> w;
 	GibbsAuxSampler sampler(&truemodel, &tr, &contexts, 0); //tr is evidence, last param is burn-in round
-	sampler.SampleTrajectories(t,w,10,randgen);//3rd param: # of samples wanted
+	sampler.SampleTrajectories(t,w,1,randgen);//3rd param: # of samples wanted
 
 
 	//printtr(cout,sampler.tr,3);
