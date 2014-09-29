@@ -13,7 +13,7 @@ bool IsInUnobserved(std::vector<double> &starts, std::vector<double> &ends, doub
 }
 
 bool GetPreviousState(map<vector<shptr<generic_state> >, vector<pair<vector<shptr<generic_state> >, pair<double,bool> > >, ssumpcomp> &transmap, vector<shptr<generic_state> > &jointstate, double prob){
-	cerr<<"starting..."<<endl;
+	//cerr<<"starting..."<<endl;
 	auto iter = transmap.find(jointstate);
 	double p_sum = 0;
 	bool keep = false;
@@ -72,7 +72,7 @@ double GibbsAuxSampler::Getkeepprob(double rate, double t0) const{
 		if(t0 > auxstarts[i] && t0 < auxends[i])
 			return rate/auxrates[i];
 	}
-	cerr<<"error!!!!"<<endl;
+	cerr<<"error1!!!!"<<endl;
 
 }
 
@@ -99,7 +99,7 @@ void GibbsAuxSampler::SetTrajectory(const ctbn::Trajectory *evidence) {
 	burntin=false;
 }
 
-//now only set init_traj as the cleaned up evid (nothing between -1 and -2)
+//now only set init_traj as the cleaned up evid (nothing between -2 and -3)
 void GibbsAuxSampler::SampleInitialTrajectory() const {
 	tr = ctbn::Trajectory();
 	tr.SetBeginTime(evid->TimeBegin());
@@ -123,7 +123,7 @@ void GibbsAuxSampler::SampleInitialTrajectory() const {
 			it++;
 		}
 	}
-	//should sample in the [-1,-2] intervals, but not necessary - to do
+	//should sample in the [-2,-3] intervals, but not necessary - to do
 }
 
 void GibbsAuxSampler::Clearcurrentvar(int varid) const{

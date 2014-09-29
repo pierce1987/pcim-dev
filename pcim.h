@@ -214,7 +214,7 @@ public:
 protected:
 	int state;
 	int v;
-	int auxv;//used to decide aux rate, -2 means does not care 
+	int auxv; //used to decide aux rate, -2 means does not care 
 	state_double teststate;
 private:
 	friend class boost::serialization::access;
@@ -389,7 +389,7 @@ private:
 	}
 };
 
-//virtual class
+//abstract class
 template<typename D>
 class varstattest : public pcimtest {
 public:
@@ -483,7 +483,10 @@ public:
 		auto i0 = vtr.lower_bound(t0);
 		auto i1 = vtr.lower_bound(t1);
 		typename D::statT stat;
-		for(auto i=i0;i!=i1;i++) if((s == -1 || i->second == s)) {std::cerr<<"adding.."<<std::endl;stat.add(i->first,i->second);}
+		for(auto i=i0;i!=i1;i++) if((s == -1 || i->second == s)) {
+			//std::cerr<<"adding.."<<std::endl;
+			stat.add(i->first,i->second);
+		}
 		until = std::min(i0!=e ? i0->first+maxlag
 						: std::numeric_limits<double>::infinity(),
 				i1!=e ? i1->first+minlag
@@ -551,7 +554,7 @@ public:
 	virtual shptr<generic_state> stateupdate(shptr<generic_state> &state, int event, double t0) const{
 		double lasttime1 = boost::dynamic_pointer_cast<state_double1>(state)->lasttime;
 		if(event == auxv){
-			if(event == -1){//????
+			if(event == -1){//will never be triggered?
 				if(lasttime1 < t0 - maxlag)
 					return boost::make_shared<state_double1>(); 
 			}
@@ -560,7 +563,7 @@ public:
 			}
 		}
 		else{
-			if(lasttime1 < t0 - maxlag)
+			if(lasttime1 < t0 - maxlag) //keep updating, even if event != var in test
 				return boost::make_shared<state_double1>(); 
 			else
 				return state;

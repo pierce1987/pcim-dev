@@ -171,8 +171,9 @@ double pcim::getevent(const ctbn::Trajectory &tr, double &t, double expsamp, dou
 		unisamp -= it->second->rate/r;
 		if (unisamp<=0) { var = it->first.var; state = it->first.state; break; } //var and state of sampled event!!
 	}
-	return t+expsamp/r;//time of sampled event!!
+	return t+expsamp/r;//time of sampled event
 }
+
 
 double pcim::geteventaux(const ctbn::Trajectory &tr, double &t, double expsamp, double unisamp,
 		double normsamp, int &var, double maxt, const ctbn::Context &contexts, vector<double> &auxstarts, vector<double> &auxends, vector<double> &auxrates) const {
@@ -193,7 +194,7 @@ double pcim::geteventaux(const ctbn::Trajectory &tr, double &t, double expsamp, 
 		//cout<<"actual rate2: "<<r<<endl;
 	}
 	//no need to iterate through leaves, since we only sample the one and only var (not care about state yet)
-	return t+expsamp/r;//time of sampled event!!
+	return t+expsamp/r;//time of sampled event
 }
 
 //new
@@ -232,6 +233,7 @@ double pcim::getratevar(const ctbn::Trajectory &tr, int var, int state, double t
 	return (dir ? ttree : ftree)->getratevar(tr,var,state,t,until,leaf);
 }
 
+// Only care about state 0 for the variable.
 double pcim::getratevar_simple(const ctbn::Trajectory &tr, int var, double t, double &until) const {
 	if (!test) {return rate;}//reached leaf
 	double til;
@@ -240,6 +242,7 @@ double pcim::getratevar_simple(const ctbn::Trajectory &tr, int var, double t, do
 	return (dir ? ttree : ftree)->getratevar_simple(tr,var,t,until);
 }
 
+// Get aux rate. If the current test result may depend on the current var, take the maximum of both branches.
 double pcim::getratevaraux(const ctbn::Trajectory &tr, int varid, int state, double t, double &until) const {
 	if (!test) { return rate; }
 	double til;
