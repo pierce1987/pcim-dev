@@ -2,6 +2,31 @@
 
 using namespace std;
 
+// This function takes log p1, log p2, and returns log(p1+p2)
+double log_add(double a, double b) {
+  double maximum = max(a,b);
+  double minimum = min(a,b);
+  if (fabs(maximum - minimum) > 30) {
+    return maximum;
+  }
+  return maximum + log(1 + exp(minimum - maximum));
+}
+
+// Samples an event from log probs. The sum of probs is <=1.
+int sample_unnorm(vector<double> &input, double r) {
+  double max_log_prob = *(max_element(input.begin(), input.end()));
+  vector<double> CDF;
+  CDF.reserve(input.size());
+  CDF.push_back(input[0]);
+  for (int i = 1; i < input.size(); ++i) {
+    CDF.push_back(log_add(CDF[CDF.size() - 1], input[i]));
+  }
+  r += CDF.back();
+  
+  return lower_bound(CDF.begin(), CDF.end(),r) - CDF.begin();
+  
+}
+
 bool IsInUnobserved(std::vector<double> &starts, std::vector<double> &ends, double t){
 	if(starts.empty())
 		return false;
@@ -12,25 +37,21 @@ bool IsInUnobserved(std::vector<double> &starts, std::vector<double> &ends, doub
 	return false;
 }
 
-bool GetPreviousState(map<vector<shptr<generic_state> >, vector<pair<vector<shptr<generic_state> >, pair<double,bool> > >, ssumpcomp> &transmap, vector<shptr<generic_state> > &jointstate, double prob){
+bool GetPreviousState(map<vector<shptr<generic_state> >, vector<pair<vector<shptr<generic_state> >, pair<double,bool> > >, ssumpcomp> &transmap, vector<shptr<generic_state> > &jointstate, double p){
 	//cerr<<"starting..."<<endl;
-	auto iter = transmap.find(jointstate);
-	double p_sum = 0;
 	bool keep = false;
-	for(auto iter1 = iter->second.begin(); iter1!= iter->second.end(); iter1++)
-		p_sum += iter1->second.first;
-
-	//cerr<<"p_sum: "<<p_sum<<endl;
-
+        vector<double> logprobs;
+	auto iter = transmap.find(jointstate);
+	logprobs.reserve(iter->second.size());
 	for(auto iter1 = iter->second.begin(); iter1!= iter->second.end(); iter1++){
-		if(prob <= (iter1->second.first/p_sum)){
-			jointstate = iter1->first;
-			keep = iter1->second.second;
-			break;
-		}
-		else
-			prob -= iter1->second.first/p_sum;
+		logprobs.push_back(iter1->second.first);
 	}
+
+
+	auto tempit = iter->second.begin();
+	advance(tempit,sample_unnorm(logprobs, p));
+	jointstate = tempit ->first;	
+	keep = tempit->second.second;
 
 	return keep;
 }

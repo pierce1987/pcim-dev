@@ -293,7 +293,7 @@ double pcim::Getlikelihood(int varid, ctbn::Trajectory &temptr, std::vector<shpt
 	//first update the traj
 	Updatetraj(temptr, jointstate, testindexes, 0);
 	//printtr(cout,temptr,3);
-	double P = 1.0;
+	double P = 0.0;//log
 	for(int i = 0; i<own_var_list.size(); i++){
 		//cerr<<"t_previous: "<<t_previous<<endl;
 		//cerr<<"t0: "<<t0<<endl;
@@ -312,11 +312,11 @@ double pcim::Getlikelihood(int varid, ctbn::Trajectory &temptr, std::vector<shpt
 				//cerr<<"until: "<<until<<endl;
 				if(until<=t0){
 					//cerr<<"until-t: "<<until-t<<endl; 
-					P *= exp(-1*rate*(until-t));
+					P += -1*rate*(until-t);
 				}
 				else{
 					//cerr<<"t0-t: "<<t0-t<<endl; 
-					P *= exp(-1*rate*(t0-t));
+					P += -1*rate*(t0-t);
 				}
 				t = until;
 			}

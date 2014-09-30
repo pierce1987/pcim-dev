@@ -8,6 +8,7 @@
 #include <cmath>
 #include <random>
 #include <string>
+#include <iterator>
 #include "serial.h"
 #include "load.h"
 #include <vector>
@@ -79,10 +80,10 @@ public:
 	virtual std::string getsig() {return "ssum_double";}	
 	virtual void print() const{std::cerr<<"double: "<<lasttime<<std::endl;}
 	virtual bool isequal(shptr<generic_state> rhs) const{
-		return this->lasttime == boost::dynamic_pointer_cast<state_double>(rhs)->lasttime;
+		return fabs(this->lasttime - boost::dynamic_pointer_cast<state_double>(rhs)->lasttime) < 0.00001;
 	}
 	virtual bool islessthan(shptr<generic_state> rhs) const{
-		return this->lasttime < boost::dynamic_pointer_cast<state_double>(rhs)->lasttime;
+		return this->lasttime < boost::dynamic_pointer_cast<state_double>(rhs)->lasttime - 0.00001;
 	}	
 	double lasttime;
 };
@@ -96,10 +97,10 @@ public:
 	virtual std::string getsig() {return "ssum_double1";}	
 	virtual void print() const{std::cerr<<"double1: "<<lasttime<<std::endl;}
 	virtual bool isequal(shptr<generic_state> rhs) const{
-		return this->lasttime == boost::dynamic_pointer_cast<state_double1>(rhs)->lasttime;
+		return fabs(this->lasttime - boost::dynamic_pointer_cast<state_double1>(rhs)->lasttime) < 0.00001;
 	}
 	virtual bool islessthan(shptr<generic_state> rhs) const{
-		return this->lasttime < boost::dynamic_pointer_cast<state_double1>(rhs)->lasttime;
+		return this->lasttime < boost::dynamic_pointer_cast<state_double1>(rhs)->lasttime - 0.00001;
 	}
 	double lasttime;
 };
