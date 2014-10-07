@@ -12,7 +12,6 @@ double getactualrate(double r, double t, double until, vector<double> &auxstarts
 		if(t>=auxstarts[i] && t<auxends[i]){
 			//if(until>auxstarts[i] && until<=auxends[i] || until == numeric_limits<double>::infinity())
 				return auxrates[i] - r;
-			//cout<<"error!!!!!!!!!!!!!!!!"<<endl;
 		}
 
 	}
@@ -174,7 +173,7 @@ double pcim::getevent(const ctbn::Trajectory &tr, double &t, double expsamp, dou
 	return t+expsamp/r;//time of sampled event
 }
 
-
+// Samples auxilary events
 double pcim::geteventaux(const ctbn::Trajectory &tr, double &t, double expsamp, double unisamp,
 		double normsamp, int &var, double maxt, const ctbn::Context &contexts, vector<double> &auxstarts, vector<double> &auxends, vector<double> &auxrates) const {
 
@@ -197,7 +196,6 @@ double pcim::geteventaux(const ctbn::Trajectory &tr, double &t, double expsamp, 
 	return t+expsamp/r;//time of sampled event
 }
 
-//new
 
 double pcim::getrate(const ctbn::Trajectory &tr, double t, double &until,
 			map<eventtype, const pcim *, eventcomp> &ret, const ctbn::Context &contexts) const {
@@ -266,7 +264,7 @@ double pcim::getratevaraux(const ctbn::Trajectory &tr, int varid, int state, dou
 	}
 }
 
-double pcim::getrate_test(int event, double t0, vector<int> &testindexes, vector<shptr<generic_state> > &jointstate, int index) const{ //shoule pass in state vector here
+double pcim::getrate_test(int event, double t0, const vector<int> &testindexes, vector<shptr<generic_state> > &jointstate, int index) const{ //shoule pass in state vector here
 
 	if(!test) {return rate;}
 
@@ -281,7 +279,7 @@ double pcim::getrate_test(int event, double t0, vector<int> &testindexes, vector
 
 }
 
-void pcim::Updatetraj(ctbn::Trajectory &temptr, std::vector<shptr<generic_state> > &jointstate, std::vector<int> &testindexes, int index) const{
+void pcim::Updatetraj(ctbn::Trajectory &temptr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, int index) const{
 	if(!test) {return;}
 	test->updatetraj(jointstate[index], temptr);//need to consider -1 - to do
 	ttree -> Updatetraj(temptr, jointstate, testindexes, index+1);
@@ -289,7 +287,7 @@ void pcim::Updatetraj(ctbn::Trajectory &temptr, std::vector<shptr<generic_state>
 }
 
 
-double pcim::Getlikelihood(int varid, ctbn::Trajectory &temptr, std::vector<shptr<generic_state> > &jointstate, std::vector<int> &testindexes, const std::vector<int> &own_var_list, double t_previous, double t0) const{
+double pcim::Getlikelihood(int varid, ctbn::Trajectory &temptr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, const std::vector<int> &own_var_list, double t_previous, double t0) const{
 	//first update the traj
 	Updatetraj(temptr, jointstate, testindexes, 0);
 	//printtr(cout,temptr,3);
@@ -322,7 +320,6 @@ double pcim::Getlikelihood(int varid, ctbn::Trajectory &temptr, std::vector<shpt
 			}
 		}
 	}
-	//cerr<<"aaaaaaaaaaaaaa: "<<P<<endl;
 	return P;
 }
 
@@ -334,6 +331,7 @@ int pcim::Makeindex(vector<int> &indexes, int i) const{
 	return ftree->Makeindex(indexes, indexes[i]) + indexes[i];
 }
 
+// Get initilized state vector in order.
 void pcim::StateInit(std::vector<shptr<generic_state> > &jointstate) const{
 	if(!test) {return;}	
 	jointstate.push_back(test->getteststate()->initialize());
@@ -346,7 +344,7 @@ int pcim::counttest() const{
 	return 1 + ttree -> counttest() + ftree->counttest();
 }
 
-void pcim::getnewstates(std::vector<shptr<generic_state> > &jointstate, std::vector<int> &testindexes, int event, double t0, int index) const{
+void pcim::getnewstates(std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, int event, double t0, int index) const{
 	if(!test) {return;}
 	jointstate[index] = test->stateupdate(jointstate[index], event, t0);
 	ttree -> getnewstates(jointstate, testindexes, event, t0, index+1);

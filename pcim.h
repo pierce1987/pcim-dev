@@ -2,6 +2,7 @@
 #define PCIM_H
 
 #include "trajectory.h"
+#include "teststates.h"
 #include <memory>
 #include <iostream>
 #include <utility>
@@ -60,51 +61,6 @@ struct vartrajrange {
 	timerange range;
 };
 
-
-class generic_state{ //for test state
-public:
-	virtual shptr<generic_state> getnewstate(shptr<generic_state>, double t, int var) const{};
-	virtual shptr<generic_state> initialize() {};
-	virtual std::string getsig() {return "empty";};
-	virtual void print() const{std::cerr<<"nothing"<<std::endl;}
-	virtual bool isequal(shptr<generic_state> rhs) const{};
-	virtual bool islessthan(shptr<generic_state> rhs) const{};
-};
-
-class state_double : public generic_state{
-public:
-	state_double(){lasttime=-100;}
-	state_double(double time) {lasttime = time;}
-	virtual shptr<generic_state> initialize()  { return boost::make_shared<state_double>(); 
-	}	
-	virtual std::string getsig() {return "ssum_double";}	
-	virtual void print() const{std::cerr<<"double: "<<lasttime<<std::endl;}
-	virtual bool isequal(shptr<generic_state> rhs) const{
-		return fabs(this->lasttime - boost::dynamic_pointer_cast<state_double>(rhs)->lasttime) < 0.00001;
-	}
-	virtual bool islessthan(shptr<generic_state> rhs) const{
-		return this->lasttime < boost::dynamic_pointer_cast<state_double>(rhs)->lasttime - 0.00001;
-	}	
-	double lasttime;
-};
-
-class state_double1 : public generic_state{
-public:
-	state_double1(){lasttime=-100;}
-	state_double1(double time) {lasttime = time;}
-	virtual shptr<generic_state> initialize()  { return boost::make_shared<state_double1>(); 
-	}
-	virtual std::string getsig() {return "ssum_double1";}	
-	virtual void print() const{std::cerr<<"double1: "<<lasttime<<std::endl;}
-	virtual bool isequal(shptr<generic_state> rhs) const{
-		return fabs(this->lasttime - boost::dynamic_pointer_cast<state_double1>(rhs)->lasttime) < 0.00001;
-	}
-	virtual bool islessthan(shptr<generic_state> rhs) const{
-		return this->lasttime < boost::dynamic_pointer_cast<state_double1>(rhs)->lasttime - 0.00001;
-	}
-	double lasttime;
-};
-
 class pcimtest {
 public:
 	virtual ~pcimtest() {} ;
@@ -131,9 +87,6 @@ private:
 	void serialize(Ar &ar, const unsigned int ver) {
 	}
 };
-
-
-
 
 // tests if last state of testvar == teststate (if no last state, state taken to be 0)
 class lasttest : public pcimtest {
@@ -545,7 +498,9 @@ public:
 
 	virtual generic_state* getteststate() {return &teststate;}		
 
+	// if thres = 0. should always return true
 	virtual bool getdecision(shptr<generic_state> state, int var, double t) const{
+			if(theta == 0) return true;
 			if(boost::dynamic_pointer_cast<state_double1>(state)->lasttime >= (t-maxlag) && boost::dynamic_pointer_cast<state_double1>(state)->lasttime <= (t-minlag))
 				return true;			
 			else 
@@ -811,12 +766,12 @@ public:
 					int &var, int &state, double maxt, const ctbn::Context &contexts) const;
 	double geteventaux(const ctbn::Trajectory &tr, double &t, double expsamp, double unisamp, double normsamp,
 					int &var, double maxt, const ctbn::Context &contexts, std::vector<double> &auxstarts, std::vector<double> &auxends, std::vector<double> &auxrates) const;
-	double getrate_test(int event, double t0, std::vector<int> &testindexes, std::vector<shptr<generic_state> > &jointstate, int index) const;
-	void Updatetraj(ctbn::Trajectory &temptr, std::vector<shptr<generic_state> > &jointstate, std::vector<int> &testindexes, int index) const;
-	double Getlikelihood(int varid, ctbn::Trajectory &temptr, std::vector<shptr<generic_state> > &jointstate, std::vector<int> &testindexes, const std::vector<int> &own_var_list, double t_previous, double t0) const;
+	double getrate_test(int event, double t0, const std::vector<int> &testindexes, std::vector<shptr<generic_state> > &jointstate, int index) const;
+	void Updatetraj(ctbn::Trajectory &temptr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, int index) const;
+	double Getlikelihood(int varid, ctbn::Trajectory &temptr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, const std::vector<int> &own_var_list, double t_previous, double t0) const;
 	void StateInit(std::vector<shptr<generic_state> > &jointstate) const;
 	int Makeindex(std::vector<int> &indexes, int i) const;
-	void getnewstates(std::vector<shptr<generic_state> > &jointstate, std::vector<int> &testindexes, int event, double t0, int index) const;
+	void getnewstates(std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, int event, double t0, int index) const;
 	int counttest() const;
 	void print(std::ostream &os) const;
 	void print(std::ostream &os, const datainfo &info) const;

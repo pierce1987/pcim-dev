@@ -12,7 +12,7 @@ double log_add(double a, double b) {
   return maximum + log(1 + exp(minimum - maximum));
 }
 
-// Samples an event from log probs. The sum of probs is <=1.
+// Samples an event from log probs. The sum of probs can be < 1.
 int sample_unnorm(vector<double> &input, double r) {
   double max_log_prob = *(max_element(input.begin(), input.end()));
   vector<double> CDF;
@@ -46,7 +46,6 @@ bool GetPreviousState(map<vector<shptr<generic_state> >, vector<pair<vector<shpt
 	for(auto iter1 = iter->second.begin(); iter1!= iter->second.end(); iter1++){
 		logprobs.push_back(iter1->second.first);
 	}
-
 
 	auto tempit = iter->second.begin();
 	advance(tempit,sample_unnorm(logprobs, p));
@@ -106,6 +105,8 @@ GibbsAuxSampler::GibbsAuxSampler(const pcim *model, const ctbn::Trajectory *evid
 	context = contexts;
 	burntin = false;
 	own_var_list = contexts->VarList();
+	testindexes.resize(m->counttest());		
+	model->Makeindex(testindexes,0);
 	//Initialize();
 }
 
@@ -177,6 +178,7 @@ void GibbsAuxSampler::ClearInitTraj() {
 	}
 }
 
+//TODO calculate only once?
 void GibbsAuxSampler::GetUnobservedIntervals(int varid) const{
 
 	if (evid->GetVarTraj(varid).empty()) 
@@ -192,7 +194,7 @@ void GibbsAuxSampler::GetUnobservedIntervals(int varid) const{
 		if(it->second == -3)
 			ends.push_back(it->first);
 		it++;
-	}
+	}	
 }
 
 //fill auxstarts auxends and auxrates;
@@ -234,7 +236,7 @@ void GibbsAuxSampler::GetAuxRates(int varid, int card) const{
 	
 }
 
-//thinning, performed on oldtr
+
 
 
 

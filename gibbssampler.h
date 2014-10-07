@@ -45,7 +45,7 @@ public:
 			traj.push_back(Get());
 			w.push_back(0.0);  // log weight
 			Next(rand);
-			cout<<"after sample: "<<endl;
+			//cout<<"after sample: "<<endl;
 			printtr(cout,tr,3);
 		}
 	}
@@ -90,17 +90,12 @@ protected:
 
 	template<typename R>
 	void Thinning(int varid, R &rand) const{
-		std::uniform_real_distribution<> unifdist(0.0,1.0);
 		if(starts.empty())
 			return;
-
+		std::uniform_real_distribution<> unifdist(0.0,1.0);
 		//forward pass
 		int T_event = 0; //event count
-		////TODO: move to initialization
-		int numoftests = m->counttest();
-		vector<int> testindexes(numoftests);
-		
-		m->Makeindex(testindexes,0);
+
 		/////
 		js jointstate, jointstate1;//temp container of one joint state
 
@@ -265,19 +260,6 @@ protected:
 		}//end of forward pass
 
 /*
-		int i=allstates.size() - 1; 
-
-			cerr<<"states at time instance "<<i<<endl;
-			for(auto iter = allstates[i].begin(); iter!=allstates[i].end();iter++){
-				for(int i = 0; i<iter->first.size(); i++){
-					cerr<<"content: ";
-					iter->first[i]->print();
-					cerr<<endl;
-				}
-				cerr<<"with P: "<<iter->second<<endl<<endl;
-			}
-		
-*/
 
 
 		for(int i=0; i<allstates.size(); i++){
@@ -326,11 +308,11 @@ protected:
 		for(int i=0; i<times.size(); i++){
 			cerr<<times[i]<<" ";
 		}
-
+*/
 	//backward pass
 	//get final state	
 
-	double p = log(0.99);//unifdist(rand);//0.99;
+	double p = log(unifdist(rand));//0.99;
 /*
 	double sump_final = 0.;
 	for(auto iter = allstates[T_event].begin(); iter != allstates[T_event].end(); iter++){
@@ -350,21 +332,21 @@ protected:
 	for(auto iter = allstates[T_event].begin(); iter != allstates[T_event].end(); iter++){
 		logprobs.push_back(iter->second);
 	}
-	cerr<<"1111111"<<endl;
+
 	auto tempit = allstates[T_event].begin();
-	cerr<<allstates[T_event].size()<<endl;
-	cerr<<logprobs.size()<<endl;
+	//cerr<<allstates[T_event].size()<<endl;
+	//cerr<<logprobs.size()<<endl;
 	advance(tempit,sample_unnorm(logprobs, p));
-cerr<<"2222222222: "<<sample_unnorm(logprobs, p)<<endl;
+
 	jointstate = tempit->first;	
         
-	cerr<<"sampled final state:"<<endl;
+	/*cerr<<"sampled final state:"<<endl;
 	for(int i = 0; i<jointstate.size(); i++){
 		cerr<<"content: ";
 		jointstate[i]->print();
 		cerr<<endl;
 	}
-	cerr<<T_event<<endl;
+	cerr<<T_event<<endl;*/
 	T_event--;//4
 
 	//p = unifdist(rand);//0.7, position should be adjusted?;move into the next loop
@@ -373,7 +355,7 @@ cerr<<"2222222222: "<<sample_unnorm(logprobs, p)<<endl;
 
 
 	for(;T_event>=0; T_event--){
-	p = log(0.7);//unifdist(rand);
+	p = log(unifdist(rand));
 	bool keep = GetPreviousState(alltrans[T_event], jointstate, p);	
 	//cerr<<"time: "<<times[T_event]<<endl;
 	if(keep)
@@ -402,11 +384,11 @@ cerr<<"2222222222: "<<sample_unnorm(logprobs, p)<<endl;
 		GetUnobservedIntervals(var);
 		//get omega intervals (info in auxstarts, auxends, and auxrates)
 		GetAuxRates(var, context->Cardinality(var));
-		cerr<<"auxrates:"<<endl;
-		for(int i = 0; i<auxstarts.size(); i++)
-		{
-			cerr<<auxrates[i]<<" in ( "<<auxstarts[i]<<","<<auxends[i]<<")"<<endl;
-		}
+		//cerr<<"auxrates:"<<endl;
+		//for(int i = 0; i<auxstarts.size(); i++)
+		//{
+		//	cerr<<auxrates[i]<<" in ( "<<auxstarts[i]<<","<<auxends[i]<<")"<<endl;
+		//}
 		oldtr = tr;//use oldtr to maintain the previous sample
 
 		std::exponential_distribution<> expdist(1.0);
@@ -422,22 +404,23 @@ cerr<<"2222222222: "<<sample_unnorm(logprobs, p)<<endl;
 			// tr->oldtr?? no, should use tr, which is fixed during sampling virtual events
 			while((t = m->geteventaux(tr,lastt,expdist(rand),unifdist(rand),normdist(rand),var,T,varcontext,auxstarts,auxends,auxrates)) < T) {
 				//cerr<<"sampled: "<<"var: "<<var<<" t: "<<t<<endl;
-				//oldtr.AddTransition(var, t, 0);	
+				oldtr.AddTransition(var, t, 0);	
 				lastt = t; //proceed no matter event kept or not
 			}
 
 		}
 		//virtual events as (for testing)
-		oldtr.AddTransition(0, 2, 0);
-		oldtr.AddTransition(0, 3, 0);
-		oldtr.AddTransition(0, 4, 0);
-		oldtr.AddTransition(0, 8, 0);
+		//oldtr.AddTransition(0, 2, 0);
+		//oldtr.AddTransition(0, 3, 0);
+		//oldtr.AddTransition(0, 4, 0);
+		//oldtr.AddTransition(0, 8, 0);
 		Clearcurrentvar(var);//clear events in unobserved areas for tr! Use thinning to add events!
 		Thinning(var, rand); //change oldtr
 	}
 
 	int numBurninIter;
 	const ctbn::Context *context;//contexts of all vars
+	std::vector<int> testindexes;
 	std::vector<int> own_var_list;
 	mutable std::vector<double> starts; //times when unobserved intervals start, for the current variable
 	mutable std::vector<double> ends; //times when unobserved intervals ends, for the current variable
