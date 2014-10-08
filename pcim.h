@@ -15,6 +15,7 @@
 #include <vector>
 #include <array>
 #include <future>
+#include <queue>
 #include <boost/make_shared.hpp>
 
 namespace boost { namespace serialization { 
@@ -497,38 +498,37 @@ public:
 
 	virtual generic_state* getteststate() {return &teststate;}		
 
+	// TODO this assumes testvar is not -1!!
+	// The queue needs to maintain every instance from t0 - maxlag until t0
 	virtual shptr<generic_state> stateupdate(shptr<generic_state> &state, int event, double t0) const{
-		double lasttime = boost::dynamic_pointer_cast<state_double1>(state)->lasttime;
-		if(event == auxv){
-			if(event == -1){//should never be triggered? yes, this is used in gibbs sampler, where the sampled var is known. -> no??
-				if(lasttime < t0 - maxlag)
-					return boost::make_shared<state_double1>(); 
+		std::queue<double> eventtimes = boost::dynamic_pointer_cast<varcount_state>(state)->times;
+		if(event == auxv) {
+			eventtimes.push(t0);
+			while (!eventtimes.empty() && eventtimes.front() < t0 - maxlag) {
+				eventtimes.pop();	
 			}
-			else{
-				return boost::make_shared<state_double1>(t0); 
+			return boost::make_shared<varcount_state>(eventtimes); 
+		} else {   //just update
+			while (!eventtimes.empty() && eventtimes.front() < t0 - maxlag) {
+				eventtimes.pop();	
 			}
-		}
-		else{
-			if(lasttime < t0 - maxlag) //keep updating, even if event != var in test
-				return boost::make_shared<state_double1>(); 
-			else
-				return state; // return a copy
+			return boost::make_shared<varcount_state>(eventtimes);
 		}	
 	}
 
 	virtual void updatetraj(shptr<generic_state> teststate, ctbn::Trajectory &temptr) {
-		double lasttime = boost::dynamic_pointer_cast<state_double1>(teststate)->lasttime;
-		if(lasttime >= 0) {
-		// auxv will never be -1 for this test
-			temptr.AddTransition(auxv, lasttime, 0);
-			//std::cerr<<"inserted...."<<lasttime<<std::endl;
+		std::queue<double> eventtimes = boost::dynamic_pointer_cast<varcount_state>(teststate)->times;
+		while (!eventtimes.empty()) {
+			temptr.AddTransition(auxv, eventtimes.front(), 0);
+			//std::cerr<<"inserted...."<<eventtimes.front()<<" to "<<auxv<<std::endl;
+			eventtimes.pop();
 		}
 	}
 	
 protected:
 	int theta;
 	int auxv;
-	state_double1 teststate;
+	varcount_state teststate;
 private:
 	friend class boost::serialization::access;
 	template<typename Ar>

@@ -284,22 +284,24 @@ double pcim::Getlikelihood(int varid, ctbn::Trajectory &temptr, std::vector<shpt
 		//cerr<<"varid: "<<varid<<endl;
 		
 		double t = t_previous;
-		if(varid == own_var_list[i] && isVirtual) 
+		if(varid == own_var_list[i] && isVirtual) {
+			//cerr<<"t0: "<<t0<<endl;
 			while(t < t0){
 				double until = numeric_limits<double>::infinity();
 				double temprate = getratevar_simple(temptr, varid, t, until);
-				cerr<<"event "<<own_var_list[i]<<" has rate "<<temprate<<" between "<<t<<" and "<<until<<endl;
+				//cerr<<"event "<<own_var_list[i]<<" has rate "<<temprate<<" between "<<t<<" and "<<until<<endl;
 				if(until >= t0){
 					rate = temprate;
 				}
 				t = until;
 			}
+		}
 		else{
 			while(t < t0){
 
 				double until = numeric_limits<double>::infinity();
 				double temprate = getratevar_simple(temptr, own_var_list[i], t, until);
-				//cerr<<"rate: "<<rate<<endl;
+				//cerr<<"rate: "<<temprate<<endl;
 				//cerr<<"until: "<<until<<endl;
 				if(until < t0){
 					//cerr<<"until-t: "<<until-t<<endl; 
@@ -309,6 +311,7 @@ double pcim::Getlikelihood(int varid, ctbn::Trajectory &temptr, std::vector<shpt
 					//cerr<<"t0-t: "<<t0-t<<endl;
 					if (varid == own_var_list[i]) {
 						rate = temprate; 
+						//cerr<<"Changing..."<<rate<<endl;
 					}
 					P += -1*temprate*(t0-t);
 				}
@@ -319,7 +322,7 @@ double pcim::Getlikelihood(int varid, ctbn::Trajectory &temptr, std::vector<shpt
 	if (rate == -1.0) {
 		cerr<<"Error, did not get correct rate"<<endl;	
 	}
-	cerr<<"finished a loop"<<endl;
+	//cerr<<"finished a loop"<<endl;
 	return P;
 }
 

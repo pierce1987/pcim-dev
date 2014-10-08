@@ -180,11 +180,10 @@ void GibbsAuxSampler::ClearInitTraj() {
 
 //TODO calculate only once?
 void GibbsAuxSampler::GetUnobservedIntervals(int varid) const{
-
-	if (evid->GetVarTraj(varid).empty()) 
-		return;
 	starts.clear();
 	ends.clear();
+	if (evid->GetVarTraj(varid).empty()) 
+		return;
 	decltype(evid->GetVarTraj(varid).begin()) it, tmpend;
 	it = evid->GetVarTraj(varid).begin();
 	tmpend = evid->GetVarTraj(varid).end();

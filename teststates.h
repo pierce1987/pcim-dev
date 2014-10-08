@@ -6,6 +6,7 @@
 #include <iostream>
 #include <utility>
 #include <cmath>
+#include <queue>
 #include <random>
 #include <string>
 #include <iterator>
@@ -45,21 +46,37 @@ public:
 };
 
 // This is used to maintain the state of varcounttest(1, 0, 3.0, 5.0)
-class state_double1 : public generic_state{
+class varcount_state : public generic_state{
 public:
-	state_double1(){lasttime=-100;}
-	state_double1(double time) {lasttime = time;}
-	virtual shptr<generic_state> initialize()  { return boost::make_shared<state_double1>(); 
+	varcount_state():times() {}
+	varcount_state(double time):times() {
+		times.push(time);
 	}
-	virtual std::string getsig() {return "ssum_double1";}	
-	virtual void print() const{std::cerr<<"double1: "<<lasttime<<std::endl;}
+	varcount_state(std::queue<double> q) : times(q) {}
+	virtual shptr<generic_state> initialize() {
+		return boost::make_shared<varcount_state>(); 
+	}
+	// Debug info.
+	virtual std::string getsig() {
+		return "varcount_state";
+	}
+	virtual void print() const {
+		std::cerr<<"time queue: ";
+		std::queue<double> temp = times;
+		while (!temp.empty()) {
+			std::cerr<<temp.front()<<" ";
+			temp.pop();		
+		}
+		std::cerr<<std::endl;
+	}
 	virtual bool isequal(shptr<generic_state> rhs) const{
-		return fabs(this->lasttime - boost::dynamic_pointer_cast<state_double1>(rhs)->lasttime) < 0.00001;
+		return (this->times == boost::dynamic_pointer_cast<varcount_state>(rhs)->times);
 	}
 	virtual bool islessthan(shptr<generic_state> rhs) const{
-		return this->lasttime < boost::dynamic_pointer_cast<state_double1>(rhs)->lasttime - 0.00001;
+		return (this->times < boost::dynamic_pointer_cast<varcount_state>(rhs)->times);
 	}
-	double lasttime;
+	// TODO do not support inference for testvar==-1 now, that needs a vector of queue ???
+	std::queue<double> times;
 };
 
 

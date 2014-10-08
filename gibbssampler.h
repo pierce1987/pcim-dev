@@ -146,6 +146,7 @@ protected:
 			timestate.clear();
 			transmap.clear();
 			t0 = getnextevent(t0, event); //event gets the next event label
+			//cerr<<"next event is "<<event<<" at "<<t0<<endl;
 			if(t0 == -1.0) break;
 			times.push_back(t0);
 			T_event++; //push time (event count) forward
@@ -155,16 +156,28 @@ protected:
 				//cerr<<"event: "<<event<<"t0:"<<t0<<endl;
 				
 				//for each exsiting state
+				//cerr<<"SIZE: "<<allstates[T_event-1].size()<<endl;
+			/*for(auto iter = allstates[T_event-1].begin(); iter!=allstates[T_event-1].end();iter++){
+				for(int i = 0; i<iter->first.size(); i++){
+					cerr<<"content: ";
+					iter->first[i]->print();
+					cerr<<endl;
+				}
+				double Prob = iter->second;
+				cerr<<"with log P: "<<Prob<<endl<<endl;
+				//cerr<<"with P log: "<<log(Prob)<<endl<<endl;
+			}*/
 				for(auto iter = allstates[T_event-1].begin(); iter!=allstates[T_event-1].end();iter++){
 					jointstate = iter->first;
 					double p_previous = iter->second;
 					temptr =  ctbn::Trajectory();
 					double rate = -1.0;
 					p_previous += m->Getlikelihood(event, temptr, jointstate, testindexes, own_var_list, t_previous, t0, rate, true); //log p
+					//cerr<<"p_previous: "<<p_previous<<endl;
 					//cerr<<"actual rate: "<<rate<<endl;
 					double p_keep = Getkeepprob(rate, t0); //not log prob
 					//double p_keep = Getkeepprob(m->getrate_test(event, t0, testindexes), t0);
-					//cerr<<"p_keep: "<<p_keep<<endl;
+					//cerr<<"p_keep: "<<log(p_keep)<<endl;
 	
 					//case: keep event
 					jointstate1 = jointstate;//jointstate1: the previous state
@@ -215,6 +228,14 @@ protected:
 				for(auto iter = allstates[T_event-1].begin(); iter!=allstates[T_event-1].end();iter++){
 					//cerr<<"!!!!!!!!!!!!!!"<<endl;
 					jointstate = iter->first;
+/*
+				for(int i = 0; i<jointstate.size(); i++){
+					cerr<<"content!!!!!!: ";
+					jointstate[i]->print();
+					cerr<<endl;
+				}
+*/
+
 					jointstate1 = jointstate;
 					double p_previous = iter->second;
 
@@ -258,9 +279,11 @@ protected:
 
 		}//end of forward pass
 
+
+
+
+
 /*
-
-
 		for(int i=0; i<allstates.size(); i++){
 			cerr<<"states at time instance"<<i<<endl;
 			for(auto iter = allstates[i].begin(); iter!=allstates[i].end();iter++){
@@ -326,6 +349,7 @@ protected:
 			p -= iter->second/sump_final;
 	}
 */
+
         vector<double> logprobs;
 	logprobs.reserve(allstates[T_event].size());
 	for(auto iter = allstates[T_event].begin(); iter != allstates[T_event].end(); iter++){
@@ -383,17 +407,17 @@ protected:
 		GetUnobservedIntervals(var);
 		//get omega intervals (info in auxstarts, auxends, and auxrates)
 		GetAuxRates(var, context->Cardinality(var));
-		//cerr<<"auxrates:"<<endl;
-		//for(int i = 0; i<auxstarts.size(); i++)
-		//{
-		//	cerr<<auxrates[i]<<" in ( "<<auxstarts[i]<<","<<auxends[i]<<")"<<endl;
-		//}
+		cerr<<"auxrates:"<<endl;
+		for(int i = 0; i<auxstarts.size(); i++)
+		{
+			cerr<<auxrates[i]<<" in ( "<<auxstarts[i]<<","<<auxends[i]<<")"<<endl;
+		}
 		oldtr = tr;//use oldtr to maintain the previous sample
 
 		std::exponential_distribution<> expdist(1.0);
 		std::uniform_real_distribution<> unifdist(0.0,1.0);
 		std::normal_distribution<> normdist(0.0,1.0);		
-	
+		//cerr<<"BEFORE"<<endl;printtr(cout,oldtr,3);
 		for(int i = 0; i < starts.size(); i++){ // for each unobserved intervals
 			//from samplecomplete
 			double t = starts[i];
@@ -408,9 +432,12 @@ protected:
 			}
 
 		}
+		//cerr<<"AFTER"<<endl;printtr(cout,oldtr,3);
+
+
 		//virtual events as (for testing)
-		//oldtr.AddTransition(0, 2, 0);
-		//oldtr.AddTransition(0, 3, 0);
+		//oldtr.AddTransition(0, 3.5, 0);
+		//oldtr.AddTransition(0, 4.0, 0);
 		//oldtr.AddTransition(0, 4, 0);
 		//oldtr.AddTransition(0, 8, 0);
 		Clearcurrentvar(var);//clear events in unobserved areas for *tr*! Use thinning result to add events

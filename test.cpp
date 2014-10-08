@@ -5,8 +5,10 @@
 #include <vector>
 #include <random>
 #include <sstream>
+#include <chrono>
 
 using namespace std;
+using namespace std::chrono;
 
 #define NPROC 1
 //#define NPROC 4
@@ -44,14 +46,18 @@ int main(int argc, char **argv) {
 				new pcim(new eventtest(-1, 1),new pcim(3),new pcim(4)));
 */
 
-	pcim truemodel(new varcounttest(1, 0, 0.0, 5.0),				
-				new pcim(1),				
-				new pcim(new varcounttest(1, 1, 0.0, 1.0),new pcim(2),new pcim(3)));
+//	pcim truemodel(new varcounttest(1, 0, 0.0, 5.0),				
+//				new pcim(1),				
+//				new pcim(new varcounttest(1, 1, 0.0, 1.0),new pcim(2),new pcim(3)));
 
 //	pcim truemodel(new varcounttest(1, 1, 0.0, 1.0),				
 //				new pcim(5),				
 //				new pcim(new varcounttest(1, 0, 0.0, 5.0),new pcim(0.5),new pcim(0.3)));
 
+
+	pcim truemodel(new varcounttest(1, 0, 3.0, 5.0),				
+				new pcim(2),				
+				new pcim(0.1));
 	truemodel.print(cout); cout << endl;
 	random_device rd;
 
@@ -123,30 +129,48 @@ int main(int argc, char **argv) {
 	tr.AddTransition(1, 4, -1);
 	tr.AddTransition(1, 5, -2);*/
 
-	tr.AddTransition(0, 1, -2);
-	tr.AddTransition(0, 10, -3);
+	//tr.AddTransition(0, 0.9, 0);
+	tr.AddTransition(0, 3, -2);
+	tr.AddTransition(0, 5, -3);
 	//tr.AddTransition(0, 1, 0);
-	tr.AddTransition(1, 5, 0);
+	//tr.AddTransition(1, 15, 0);
+/*tr.AddTransition(0, 7, 0);
+tr.AddTransition(0, 8, 0);
+tr.AddTransition(0, 7.5, 0);
+tr.AddTransition(0, 7.9, 0);
+tr.AddTransition(0, 8.5, 0);
+tr.AddTransition(0, 8.8, 0);
+tr.AddTransition(0, 8.1, 0);
+tr.AddTransition(0, 8.7, 0);
+tr.AddTransition(0, 9.5, 0);
+tr.AddTransition(0, 9.8, 0);
+tr.AddTransition(0, 9.1, 0);
+tr.AddTransition(0, 9.7, 0);*/
 	//tr.AddTransition(0, 1, 0);
 	//tr.AddTransition(0, 2, 0);
-	/*tr.AddTransition(1, 7.0, 0);
-	tr.AddTransition(1, 7.1, 0);
-	tr.AddTransition(1, 7.2, 0);
-	tr.AddTransition(1, 7.3, 0);
-	tr.AddTransition(1, 7.4, 0);
-	tr.AddTransition(1, 7.5, 0);
-tr.AddTransition(1, 7.6, 0);
-tr.AddTransition(1, 7.7, 0);
-tr.AddTransition(1, 7.8, 0);
-tr.AddTransition(1, 7.9, 0);*/
+	tr.AddTransition(0, 6.51, 0);
+	tr.AddTransition(0, 6.6, 0);
+	//tr.AddTransition(0, 8.2, 0);
+	//tr.AddTransition(0, 8.3, 0);
+	//tr.AddTransition(0, 8.4, 0);
+//	tr.AddTransition(0, 8.5, 0);
+//tr.AddTransition(0, 8.6, 0);
+//tr.AddTransition(0, 8.7, 0);
+//tr.AddTransition(0, 8.8, 0);
+//tr.AddTransition(0, 8.9, 0);
         //tr.AddTransition(1, 10, 0);
 
 	vector<ctbn::Trajectory> t;//vector of sampled trajectories
 	vector<double> w;
+
+	high_resolution_clock::time_point t1 = high_resolution_clock::now();
+
 	GibbsAuxSampler sampler(&truemodel, &tr, &contexts, 0); //tr is evidence, last param is burn-in round
-	sampler.SampleTrajectories(t,w,1,randgen);//3rd param: # of samples wanted
+	sampler.SampleTrajectories(t,w,10,randgen);//3rd param: # of samples wanted
 
-
+	high_resolution_clock::time_point t2 = high_resolution_clock::now();
+	auto duration = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();
+	cout<<duration<<endl;
 	//printtr(cout,sampler.tr,3);
 
 
