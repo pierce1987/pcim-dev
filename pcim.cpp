@@ -231,7 +231,7 @@ double pcim::getratevar(const ctbn::Trajectory &tr, int var, int state, double t
 	return (dir ? ttree : ftree)->getratevar(tr,var,state,t,until,leaf);
 }
 
-// Only care about state 0 for the variable.
+// Simple version of getratevar. Only care about state 0 for the variable.
 double pcim::getratevar_simple(const ctbn::Trajectory &tr, int var, double t, double &until) const {
 	if (!test) {return rate;}//reached leaf
 	double til;
@@ -264,30 +264,15 @@ double pcim::getratevaraux(const ctbn::Trajectory &tr, int varid, int state, dou
 	}
 }
 
-double pcim::getrate_test(int event, double t0, const vector<int> &testindexes, vector<shptr<generic_state> > &jointstate, int index) const{ //shoule pass in state vector here
-
-	if(!test) {return rate;}
-
-	bool dir = test->getdecision(jointstate[index], event, t0);
-
-	if(dir){
-		return ttree -> getrate_test(event, t0, testindexes, jointstate, index+1);
-	}
-	else{
-		return ftree -> getrate_test(event, t0, testindexes, jointstate, index+testindexes[index]);
-	}
-
-}
-
 void pcim::Updatetraj(ctbn::Trajectory &temptr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, int index) const{
 	if(!test) {return;}
 	test->updatetraj(jointstate[index], temptr);//need to consider -1 - to do
-	ttree -> Updatetraj(temptr, jointstate, testindexes, index+1);
+	ttree -> Updatetraj(temptr, jointstate, testindexes, index + 1);
 	ftree -> Updatetraj(temptr, jointstate, testindexes, index+testindexes[index]);	
 }
 
 
-double pcim::Getlikelihood(int varid, ctbn::Trajectory &temptr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, const std::vector<int> &own_var_list, double t_previous, double t0) const{
+double pcim::Getlikelihood(int varid, ctbn::Trajectory &temptr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, const std::vector<int> &own_var_list, double t_previous, double t0, double &rate, bool isVirtual) const{
 	//first update the traj
 	Updatetraj(temptr, jointstate, testindexes, 0);
 	//printtr(cout,temptr,3);
@@ -299,27 +284,42 @@ double pcim::Getlikelihood(int varid, ctbn::Trajectory &temptr, std::vector<shpt
 		//cerr<<"varid: "<<varid<<endl;
 		
 		double t = t_previous;
-		if(varid == own_var_list[i])
-			continue;
+		if(varid == own_var_list[i] && isVirtual) 
+			while(t < t0){
+				double until = numeric_limits<double>::infinity();
+				double temprate = getratevar_simple(temptr, varid, t, until);
+				cerr<<"event "<<own_var_list[i]<<" has rate "<<temprate<<" between "<<t<<" and "<<until<<endl;
+				if(until >= t0){
+					rate = temprate;
+				}
+				t = until;
+			}
 		else{
 			while(t < t0){
 
 				double until = numeric_limits<double>::infinity();
-				double rate = getratevar_simple(temptr, own_var_list[i], t, until);
+				double temprate = getratevar_simple(temptr, own_var_list[i], t, until);
 				//cerr<<"rate: "<<rate<<endl;
 				//cerr<<"until: "<<until<<endl;
-				if(until<=t0){
+				if(until < t0){
 					//cerr<<"until-t: "<<until-t<<endl; 
-					P += -1*rate*(until-t);
+					P += -1*temprate*(until-t);
 				}
 				else{
-					//cerr<<"t0-t: "<<t0-t<<endl; 
-					P += -1*rate*(t0-t);
+					//cerr<<"t0-t: "<<t0-t<<endl;
+					if (varid == own_var_list[i]) {
+						rate = temprate; 
+					}
+					P += -1*temprate*(t0-t);
 				}
 				t = until;
 			}
 		}
 	}
+	if (rate == -1.0) {
+		cerr<<"Error, did not get correct rate"<<endl;	
+	}
+	cerr<<"finished a loop"<<endl;
 	return P;
 }
 

@@ -114,7 +114,7 @@ protected:
 		}
 		
 		vector<double> times;
-		//TODO: user typedef
+		//TODO: use typedef
 		map<js, double, ssumpcomp> timestate; //state table at one time,temp
 		map<js, vector<pair<js, pair<double,bool> > >, ssumpcomp> transmap;//state transition at one time
 		vector<map<js, double, ssumpcomp> > allstates;
@@ -138,10 +138,9 @@ protected:
 		//cerr<<"value:"<<timestate.begin()->second<<endl;
 		//cerr<<"MAPSIZE:"<<timestate.size()<<endl;
 
-		double t0 = 0;//starts[0]-0.001;
+		double t0 = 0;//starts[0]-0.001; should not use starts[0] if doing tr insertion
 		double t_previous = 0;
 		int event = varid;
-		//cerr<<"t0:"<<t0<<endl;
 		for(;;) { //until the last event
 		
 			timestate.clear();
@@ -160,8 +159,8 @@ protected:
 					jointstate = iter->first;
 					double p_previous = iter->second;
 					temptr =  ctbn::Trajectory();
-					p_previous += m->Getlikelihood(varid, temptr, jointstate, testindexes, own_var_list, t_previous, t0); //log p
-					double rate = m->getrate_test(event, t0, testindexes, jointstate, 0);
+					double rate = -1.0;
+					p_previous += m->Getlikelihood(event, temptr, jointstate, testindexes, own_var_list, t_previous, t0, rate, true); //log p
 					//cerr<<"actual rate: "<<rate<<endl;
 					double p_keep = Getkeepprob(rate, t0); //not log prob
 					//double p_keep = Getkeepprob(m->getrate_test(event, t0, testindexes), t0);
@@ -220,9 +219,9 @@ protected:
 					double p_previous = iter->second;
 
 					temptr =  ctbn::Trajectory();
-					double rate = m->getrate_test(event, t0, testindexes, jointstate, 0);//rate of evidence event
+					double rate = -1.0;
 					//cerr<<"previous1: "<<p_previous<<endl;
-					p_previous += m->Getlikelihood(varid, temptr, jointstate, testindexes, own_var_list, t_previous, t0);
+					p_previous += m->Getlikelihood(event, temptr, jointstate, testindexes, own_var_list, t_previous, t0, rate, false);
 					//cerr<<"previous2: "<<p_previous<<endl;
 					p_previous += log(rate);//evidence needs this
 					//cerr<<"previous3: "<<p_previous<<endl;
@@ -414,8 +413,8 @@ protected:
 		//oldtr.AddTransition(0, 3, 0);
 		//oldtr.AddTransition(0, 4, 0);
 		//oldtr.AddTransition(0, 8, 0);
-		Clearcurrentvar(var);//clear events in unobserved areas for tr! Use thinning to add events!
-		Thinning(var, rand); //change oldtr
+		Clearcurrentvar(var);//clear events in unobserved areas for *tr*! Use thinning result to add events
+		Thinning(var, rand); //thinning oldtr, in backward pass add events to tr.
 	}
 
 	int numBurninIter;

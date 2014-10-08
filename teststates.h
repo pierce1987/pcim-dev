@@ -44,7 +44,7 @@ public:
 	double lasttime;
 };
 
-// This is used to maintain the state of varcounttest(0, 0, 3.0, 5.0)
+// This is used to maintain the state of varcounttest(1, 0, 3.0, 5.0)
 class state_double1 : public generic_state{
 public:
 	state_double1(){lasttime=-100;}
