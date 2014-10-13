@@ -45,7 +45,8 @@ public:
 	double lasttime;
 };
 
-// This is used to maintain the state of varcounttest(1, 0, 3.0, 5.0)
+// This is used to maintain the state of varcounttest. A queue is used to maintain events from current - maxlag
+// to current time. Does not support testvar = -1 now. See TODO
 class varcount_state : public generic_state{
 public:
 	varcount_state():times() {}
@@ -75,9 +76,10 @@ public:
 	virtual bool islessthan(shptr<generic_state> rhs) const{
 		return (this->times < boost::dynamic_pointer_cast<varcount_state>(rhs)->times);
 	}
-	// TODO do not support inference for testvar==-1 now, that needs a vector of queue ???
 	std::queue<double> times;
 };
+
+// This is used to maintain the state of lasttest. 
 
 
 #endif

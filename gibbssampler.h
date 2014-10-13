@@ -50,6 +50,10 @@ public:
 		}
 	}
 
+// tr is the output,which takes the evidence from the previous example, clears unobserved
+// intervals, then add in event via thinning. oldtr is used in thinning process. temptr is
+// used to take a jointstate and calculate rates. Initiliazed as tr (or oldtr), clear the whole
+// sampled var traj, then insert events according to the state.
 mutable ctbn::Trajectory tr,oldtr,temptr;
 
 protected:
@@ -170,7 +174,8 @@ protected:
 				for(auto iter = allstates[T_event-1].begin(); iter!=allstates[T_event-1].end();iter++){
 					jointstate = iter->first;
 					double p_previous = iter->second;
-					temptr =  ctbn::Trajectory();
+					//temptr =  ctbn::Trajectory();
+					temptr.SetUnknown(varid,true);
 					double rate = -1.0;
 					p_previous += m->Getlikelihood(varid, event, temptr, jointstate, testindexes, own_var_list, t_previous, t0, rate, starts, ends); //log p
 					//cerr<<"p_previous: "<<p_previous<<endl;
@@ -181,7 +186,7 @@ protected:
 	
 					//case: keep event
 					jointstate1 = jointstate;//jointstate1: the previous state
-					m->getnewstates(jointstate, testindexes, event, t0, 0);
+					m->getnewstates(jointstate, testindexes, event, t0, 0, varid);
 
 					auto it = timestate.find(jointstate); 
 					if(it != timestate.end())
@@ -204,7 +209,7 @@ protected:
 					
 					//case: do not keep event
 					jointstate = jointstate1;
-					m->getnewstates(jointstate, testindexes, -1, t0, 0);
+					m->getnewstates(jointstate, testindexes, -1, t0, 0, varid);
 					it = timestate.find(jointstate); 
 					if(it != timestate.end())
 						it->second = log_add(it->second, (p_previous + log(1-p_keep)));
@@ -239,7 +244,8 @@ protected:
 					jointstate1 = jointstate;
 					double p_previous = iter->second;
 
-					temptr =  ctbn::Trajectory();
+					//temptr =  ctbn::Trajectory();
+					temptr.SetUnknown(varid,true);
 					double rate = -1.0;
 					//cerr<<"previous1: "<<p_previous<<endl;
 					p_previous += m->Getlikelihood(varid, event, temptr, jointstate, testindexes, own_var_list, t_previous, t0, rate, starts, ends);
@@ -248,7 +254,7 @@ protected:
 					//cerr<<"previous3: "<<p_previous<<endl;
 
 
-			 		m->getnewstates(jointstate, testindexes, event, t0, 0);
+			 		m->getnewstates(jointstate, testindexes, event, t0, 0, varid);
 
 
 
@@ -413,6 +419,7 @@ protected:
 			cerr<<auxrates[i]<<" in ( "<<auxstarts[i]<<","<<auxends[i]<<")"<<endl;
 		}
 		oldtr = tr;//use oldtr to maintain the previous sample
+		temptr = tr;
 
 		std::exponential_distribution<> expdist(1.0);
 		std::uniform_real_distribution<> unifdist(0.0,1.0);

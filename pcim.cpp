@@ -291,11 +291,11 @@ double pcim::getratevaraux(const ctbn::Trajectory &tr, int varid, int state, dou
 	}
 }
 
-void pcim::Updatetraj(ctbn::Trajectory &temptr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, int index) const{
+void pcim::Updatetraj(ctbn::Trajectory &temptr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, int index, int varid) const{
 	if(!test) {return;}
-	test->updatetraj(jointstate[index], temptr);//need to consider -1 - to do
-	ttree -> Updatetraj(temptr, jointstate, testindexes, index + 1);
-	ftree -> Updatetraj(temptr, jointstate, testindexes, index+testindexes[index]);	
+	test->updatetraj(jointstate[index], temptr, varid);//need to consider -1 - to do
+	ttree -> Updatetraj(temptr, jointstate, testindexes, index + 1, varid);
+	ftree -> Updatetraj(temptr, jointstate, testindexes, index+testindexes[index], varid);	
 }
 
 // First argument should be the sampled varid, second argument is event. 
@@ -305,7 +305,7 @@ void pcim::Updatetraj(ctbn::Trajectory &temptr, std::vector<shptr<generic_state>
 // function).
 double pcim::Getlikelihood(int varid, int event, ctbn::Trajectory &temptr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, const std::vector<int> &own_var_list, double t_previous, double t0, double &rate, std::vector<double> &starts, std::vector<double> &ends) const{
 	//first update the traj
-	Updatetraj(temptr, jointstate, testindexes, 0);
+	Updatetraj(temptr, jointstate, testindexes, 0, varid);
 	
 
 	//printtr(cout,temptr,3);
@@ -397,11 +397,11 @@ int pcim::counttest() const{
 	return 1 + ttree -> counttest() + ftree->counttest();
 }
 
-void pcim::getnewstates(std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, int event, double t0, int index) const{
+void pcim::getnewstates(std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, int event, double t0, int index, int varid) const{
 	if(!test) {return;}
-	jointstate[index] = test->stateupdate(jointstate[index], event, t0);
-	ttree -> getnewstates(jointstate, testindexes, event, t0, index+1);
-	ftree -> getnewstates(jointstate, testindexes, event, t0, index+testindexes[index]);	
+	jointstate[index] = test->stateupdate(jointstate[index], event, t0, varid);
+	ttree -> getnewstates(jointstate, testindexes, event, t0, index+1, varid);
+	ftree -> getnewstates(jointstate, testindexes, event, t0, index+testindexes[index], varid);	
 }
 
 void pcim::print(ostream &os) const {

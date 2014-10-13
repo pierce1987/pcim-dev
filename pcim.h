@@ -76,9 +76,9 @@ public:
 		double toss; return eval(tr,event,t,toss);
 	}
 	virtual bool eval(const ctbn::Trajectory &tr, eventtype event, double t, double &until) const = 0;
-	virtual shptr<generic_state> stateupdate(shptr<generic_state> &teststate, int event, double t0) const{};
+	virtual shptr<generic_state> stateupdate(shptr<generic_state> &teststate, int event, double t0, int varid) const{};
 	virtual generic_state* getteststate() = 0;
-	virtual void updatetraj(shptr<generic_state> teststate, ctbn::Trajectory &temptr) {};
+	virtual void updatetraj(shptr<generic_state> teststate, ctbn::Trajectory &temptr, int varid) {};
 
 private:
 	
@@ -498,28 +498,65 @@ public:
 
 	virtual generic_state* getteststate() {return &teststate;}		
 
-	// TODO this assumes testvar is not -1!!
-	// The queue needs to maintain every instance from t0 - maxlag until t0
-	virtual shptr<generic_state> stateupdate(shptr<generic_state> &state, int event, double t0) const{
+	// The queue needs to maintain every instance from t0 - minlag until t0, between 
+	// t0 - maxlag and t0 - minlag, only at most theta instances are needed.
+	virtual shptr<generic_state> stateupdate(shptr<generic_state> &state, int event, double t0, int varid) const{
+		// auxv = -1 means test current var in the test. event = -1 means do not keep the virtual event.
+		if (auxv != -1 && auxv != varid) {
+			return state;
+		}
 		std::queue<double> eventtimes = boost::dynamic_pointer_cast<varcount_state>(state)->times;
-		if(event == auxv) {
-			eventtimes.push(t0);
-			while (!eventtimes.empty() && eventtimes.front() < t0 - maxlag) {
-				eventtimes.pop();	
-			}
-			return boost::make_shared<varcount_state>(eventtimes); 
-		} else {   //just update
-			while (!eventtimes.empty() && eventtimes.front() < t0 - maxlag) {
-				eventtimes.pop();	
-			}
-			return boost::make_shared<varcount_state>(eventtimes);
-		}	
-	}
+/*
+		std::cerr<<"STARTING...."<<std::endl;
+		std::queue<double> temp = eventtimes;
+		while (!temp.empty()) {
+			std::cerr<<temp.front()<<" ";
+			temp.pop();		
+		}
+		std::cerr<<std::endl;
+*/
+		std::queue<double> result;
 
-	virtual void updatetraj(shptr<generic_state> teststate, ctbn::Trajectory &temptr) {
+		if (event != -1) {
+			eventtimes.push(t0);
+		}
+		
+		while (!eventtimes.empty() && eventtimes.front() < t0 - maxlag) {
+			eventtimes.pop();	
+		}
+		while (!eventtimes.empty() && eventtimes.front() >= t0 - maxlag && eventtimes.front() <= t0 - minlag) {		
+			result.push(eventtimes.front());
+			eventtimes.pop();
+			if (result.size() > theta) {
+				result.pop();
+			}
+		}
+		while (!eventtimes.empty()) {		
+			result.push(eventtimes.front());
+			eventtimes.pop();
+		}
+/*
+		std::cerr<<"FINISHING...."<<std::endl;
+		temp = result;
+		while (!temp.empty()) {
+			std::cerr<<temp.front()<<" ";
+			temp.pop();		
+		}
+		std::cerr<<std::endl;
+
+*/
+		return boost::make_shared<varcount_state>(result); 
+	
+	}
+	// only need to update the sampled var
+	virtual void updatetraj(shptr<generic_state> teststate, ctbn::Trajectory &temptr, int varid) {
+		if (auxv != -1 && auxv != varid) {
+			return;
+		}
+
 		std::queue<double> eventtimes = boost::dynamic_pointer_cast<varcount_state>(teststate)->times;
 		while (!eventtimes.empty()) {
-			temptr.AddTransition(auxv, eventtimes.front(), 0);
+			temptr.AddTransition(varid, eventtimes.front(), 0);
 			//std::cerr<<"inserted...."<<eventtimes.front()<<" to "<<auxv<<std::endl;
 			eventtimes.pop();
 		}
@@ -759,11 +796,11 @@ public:
 					int &var, int &state, double maxt, const ctbn::Context &contexts) const;
 	double geteventaux(const ctbn::Trajectory &tr, double &t, double expsamp, double unisamp, double normsamp,
 					int &var, double maxt, const ctbn::Context &contexts, std::vector<double> &auxstarts, std::vector<double> &auxends, std::vector<double> &auxrates) const;
-	void Updatetraj(ctbn::Trajectory &temptr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, int index) const;
+	void Updatetraj(ctbn::Trajectory &temptr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, int index, int varid) const;
 	double Getlikelihood(int varid, int event, ctbn::Trajectory &temptr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, const std::vector<int> &own_var_list, double t_previous, double t0, double &rate, std::vector<double> &starts, std::vector<double> &ends) const;
 	void StateInit(std::vector<shptr<generic_state> > &jointstate) const;
 	int Makeindex(std::vector<int> &indexes, int i) const;
-	void getnewstates(std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, int event, double t0, int index) const;
+	void getnewstates(std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, int event, double t0, int index, int varid) const;
 	int counttest() const;
 	void print(std::ostream &os) const;
 	void print(std::ostream &os, const datainfo &info) const;
