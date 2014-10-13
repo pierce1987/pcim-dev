@@ -172,7 +172,7 @@ protected:
 					double p_previous = iter->second;
 					temptr =  ctbn::Trajectory();
 					double rate = -1.0;
-					p_previous += m->Getlikelihood(event, temptr, jointstate, testindexes, own_var_list, t_previous, t0, rate, true); //log p
+					p_previous += m->Getlikelihood(varid, event, temptr, jointstate, testindexes, own_var_list, t_previous, t0, rate, starts, ends); //log p
 					//cerr<<"p_previous: "<<p_previous<<endl;
 					//cerr<<"actual rate: "<<rate<<endl;
 					double p_keep = Getkeepprob(rate, t0); //not log prob
@@ -242,7 +242,7 @@ protected:
 					temptr =  ctbn::Trajectory();
 					double rate = -1.0;
 					//cerr<<"previous1: "<<p_previous<<endl;
-					p_previous += m->Getlikelihood(event, temptr, jointstate, testindexes, own_var_list, t_previous, t0, rate, false);
+					p_previous += m->Getlikelihood(varid, event, temptr, jointstate, testindexes, own_var_list, t_previous, t0, rate, starts, ends);
 					//cerr<<"previous2: "<<p_previous<<endl;
 					p_previous += log(rate);//evidence needs this
 					//cerr<<"previous3: "<<p_previous<<endl;

@@ -760,7 +760,7 @@ public:
 	double geteventaux(const ctbn::Trajectory &tr, double &t, double expsamp, double unisamp, double normsamp,
 					int &var, double maxt, const ctbn::Context &contexts, std::vector<double> &auxstarts, std::vector<double> &auxends, std::vector<double> &auxrates) const;
 	void Updatetraj(ctbn::Trajectory &temptr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, int index) const;
-	double Getlikelihood(int varid, ctbn::Trajectory &temptr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, const std::vector<int> &own_var_list, double t_previous, double t0, double &rate, bool isVirtual) const;
+	double Getlikelihood(int varid, int event, ctbn::Trajectory &temptr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, const std::vector<int> &own_var_list, double t_previous, double t0, double &rate, std::vector<double> &starts, std::vector<double> &ends) const;
 	void StateInit(std::vector<shptr<generic_state> > &jointstate) const;
 	int Makeindex(std::vector<int> &indexes, int i) const;
 	void getnewstates(std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, int event, double t0, int index) const;

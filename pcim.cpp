@@ -18,6 +18,33 @@ double getactualrate(double r, double t, double until, vector<double> &auxstarts
 	cout<<"problem!!!!!!!!!!!"<<endl;
 }
 
+void GetObservedIntervals(double t_previous, double t0, const vector<double> &starts, const vector<double> &ends, vector<double> &obstarts, vector<double> &obends) {
+	if (starts.empty()) {
+		obstarts.push_back(t_previous);
+		obends.push_back(t0);
+		return;
+	}
+	for (int i = 0; i < starts.size(); ++i) {
+		if (ends[i] <= t_previous || starts[i] >= t0) {
+			continue;
+		}
+		if (starts[i] <= t_previous && ends[i] >= t0) {
+			obstarts.push_back(t_previous);
+			obends.push_back(t0);
+		} else if (starts[i] <= t_previous && ends[i] <= t0) {
+			obstarts.push_back(t_previous);
+			obends.push_back(ends[i]);
+		} else if (starts[i] >= t_previous && ends[i] <= t0) {
+			obstarts.push_back(starts[i]);
+			obends.push_back(ends[i]);
+		} else if (starts[i] >= t_previous && ends[i] >= t0) {
+			obstarts.push_back(starts[i]);
+			obends.push_back(t0);
+		}
+	}
+	return;
+}
+
 inline vector<vartrajrange> torange(const vector<ctbn::Trajectory> &data, const ctbn::Context &contexts) {
 	vector<vartrajrange> ret;
 	if (data.empty()) return ret;
@@ -271,10 +298,16 @@ void pcim::Updatetraj(ctbn::Trajectory &temptr, std::vector<shptr<generic_state>
 	ftree -> Updatetraj(temptr, jointstate, testindexes, index+testindexes[index]);	
 }
 
-
-double pcim::Getlikelihood(int varid, ctbn::Trajectory &temptr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, const std::vector<int> &own_var_list, double t_previous, double t0, double &rate, bool isVirtual) const{
+// First argument should be the sampled varid, second argument is event. 
+// When calculating the likelihood, if not the sampled var, the
+// procedure is the same (in the else statement). If the sampled var, need to calculate likelihood in all
+// observed areas between t_previous and t0, no matter evidence or not (rate for evidence handled out of the
+// function).
+double pcim::Getlikelihood(int varid, int event, ctbn::Trajectory &temptr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, const std::vector<int> &own_var_list, double t_previous, double t0, double &rate, std::vector<double> &starts, std::vector<double> &ends) const{
 	//first update the traj
 	Updatetraj(temptr, jointstate, testindexes, 0);
+	
+
 	//printtr(cout,temptr,3);
 	double P = 0.0;//log
 	for(int i = 0; i<own_var_list.size(); i++){
@@ -284,39 +317,56 @@ double pcim::Getlikelihood(int varid, ctbn::Trajectory &temptr, std::vector<shpt
 		//cerr<<"varid: "<<varid<<endl;
 		
 		double t = t_previous;
-		if(varid == own_var_list[i] && isVirtual) {
+		// for the sampled var only
+		if(varid == own_var_list[i]) {
 			//cerr<<"t0: "<<t0<<endl;
-			while(t < t0){
-				double until = numeric_limits<double>::infinity();
-				double temprate = getratevar_simple(temptr, varid, t, until);
-				//cerr<<"event "<<own_var_list[i]<<" has rate "<<temprate<<" between "<<t<<" and "<<until<<endl;
-				if(until >= t0){
-					rate = temprate;
+			// first get observed intervals between t_previous and t0, then propograte each interval
+			// and get likelihood
+			vector<double> obstarts;
+			vector<double> obends;
+			GetObservedIntervals(t_previous, t0, starts, ends, obstarts, obends);
+			for (int j = 0; j < obstarts.size(); ++j) {
+				// This two mimics t and t0, but only for one observed interval
+				double t_small = obstarts[j];
+				double t0_small = obends[j];
+				while(t_small < t0_small){
+
+					double until = numeric_limits<double>::infinity();
+					double temprate = getratevar_simple(temptr, own_var_list[i], t_small, until);
+					//cerr<<"rate: "<<temprate<<endl;
+					//cerr<<"until: "<<until<<endl;
+					if(until < t0_small){
+						//cerr<<"until-t: "<<until-t<<endl; 
+						P += -1*temprate*(until-t_small);
+					}
+					else{
+						P += -1*temprate*(t0_small-t_small);
+					}
+					t_small = until;
 				}
-				t = until;
 			}
 		}
-		else{
-			while(t < t0){
-
-				double until = numeric_limits<double>::infinity();
-				double temprate = getratevar_simple(temptr, own_var_list[i], t, until);
-				//cerr<<"rate: "<<temprate<<endl;
-				//cerr<<"until: "<<until<<endl;
-				if(until < t0){
-					//cerr<<"until-t: "<<until-t<<endl; 
+		//do this for all event. If the sampled event, do not add likelihood (taken care above.)
+		while(t < t0){
+			double until = numeric_limits<double>::infinity();
+			double temprate = getratevar_simple(temptr, own_var_list[i], t, until);
+			//cerr<<"rate: "<<temprate<<endl;
+			//cerr<<"until: "<<until<<endl;
+			if(until < t0){
+				//cerr<<"until-t: "<<until-t<<endl; 
+				if (varid != own_var_list[i]) {
 					P += -1*temprate*(until-t);
 				}
-				else{
-					//cerr<<"t0-t: "<<t0-t<<endl;
-					if (varid == own_var_list[i]) {
-						rate = temprate; 
-						//cerr<<"Changing..."<<rate<<endl;
-					}
+			}
+			else{
+				if (varid != own_var_list[i]) {
 					P += -1*temprate*(t0-t);
 				}
-				t = until;
+				if (event == own_var_list[i]) {
+					rate = temprate;
+				}
 			}
+			t = until;
 		}
 	}
 	if (rate == -1.0) {
