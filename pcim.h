@@ -32,7 +32,7 @@ struct eventtype{
 
 struct eventcomp{
 	bool operator() (const eventtype& lhs, const eventtype& rhs) const{
-		return std::make_pair(lhs.var, lhs.state)<std::make_pair(rhs.var, rhs.state);		
+		return std::make_pair(lhs.var, lhs.state) < std::make_pair(rhs.var, rhs.state);		
 	}
 };
 
@@ -76,9 +76,10 @@ public:
 		double toss; return eval(tr,event,t,toss);
 	}
 	virtual bool eval(const ctbn::Trajectory &tr, eventtype event, double t, double &until) const = 0;
+	virtual bool neweval(const ctbn::Trajectory &tr, shptr<generic_state> &teststate, int varid, eventtype event, double t, double &until) const {};
 	virtual shptr<generic_state> stateupdate(shptr<generic_state> &teststate, int event, double t0, int varid) const{};
 	virtual generic_state* getteststate() = 0;
-	virtual void updatetraj(shptr<generic_state> teststate, ctbn::Trajectory &temptr, int varid) {};
+	//virtual void updatetraj(shptr<generic_state> teststate, ctbn::Trajectory &temptr, int varid) {};
 
 private:
 	
@@ -332,7 +333,7 @@ public:
 	virtual generic_state* getteststate() {return &teststate;}
 private:
 	double t0,t1,m;
-	int auxv;
+	int auxv; // -2, do not relate to event
 	state_double teststate;
 private:
 	friend class boost::serialization::access;
@@ -464,7 +465,7 @@ private:
 	
 
 // test if count of number of events of var testvar (-1 == currvar)
-// from t-lag0 to t-lag1 is greater than thresh
+// from t-lag0 to t-lag1 is >= thresh
 class varcounttest : public varstattest<varcounttest> {
 public:
 	varcounttest(int thresh=0, int testvar=0, double lag0=0, double lag1=1, int teststate = -1)
@@ -489,7 +490,7 @@ public:
 	};
 
 	bool evalstat(const statT &s) const {
-		return s.n>=theta;
+		return s.n >= theta;
 	}
 
 	double getmaxlag() const{
@@ -515,7 +516,7 @@ public:
 		}
 		std::cerr<<std::endl;
 */
-		std::queue<double> result;
+
 
 		if (event != -1) {
 			eventtimes.push(t0);
@@ -524,6 +525,14 @@ public:
 		while (!eventtimes.empty() && eventtimes.front() < t0 - maxlag) {
 			eventtimes.pop();	
 		}
+		// In many cases minlag == 0, can save some time
+		if (minlag == 0) {
+			while (eventtimes.size() > theta) {
+				eventtimes.pop();
+			}
+			return boost::make_shared<varcount_state>(eventtimes); 			
+		}
+		std::queue<double> result;
 		while (!eventtimes.empty() && eventtimes.front() >= t0 - maxlag && eventtimes.front() <= t0 - minlag) {		
 			result.push(eventtimes.front());
 			eventtimes.pop();
@@ -548,19 +557,59 @@ public:
 		return boost::make_shared<varcount_state>(result); 
 	
 	}
+
 	// only need to update the sampled var
-	virtual void updatetraj(shptr<generic_state> teststate, ctbn::Trajectory &temptr, int varid) {
+	/*virtual void updatetraj(shptr<generic_state> teststate, ctbn::Trajectory &temptr, int varid) {
 		if (auxv != -1 && auxv != varid) {
 			return;
 		}
 
 		std::queue<double> eventtimes = boost::dynamic_pointer_cast<varcount_state>(teststate)->times;
 		while (!eventtimes.empty()) {
+			// TODO should handle different states
 			temptr.AddTransition(varid, eventtimes.front(), 0);
-			//std::cerr<<"inserted...."<<eventtimes.front()<<" to "<<auxv<<std::endl;
+			//std::cerr<<"inserted...."<<eventtimes.front()<<" to "<<varid<std::endl;
 			eventtimes.pop();
 		}
+	}*/
+
+	virtual bool neweval(const ctbn::Trajectory &tr, shptr<generic_state> &state, int varid, eventtype event, double t, double &until) const {
+	if (event.var != varid) {
+		return eval(tr, event, t, until);
 	}
+	// use state
+	std::queue<double> eventtimes = boost::dynamic_pointer_cast<varcount_state>(state)->times;	
+	double i0_t = -1.0;
+	double i1_t = -1.0;
+	int count = 0;
+	while (!eventtimes.empty()) {
+		if (eventtimes.front() >= t - maxlag && eventtimes.front() <= t - minlag) {
+			count++;
+			if (i0_t == -1.0) {
+				i0_t = eventtimes.front();
+			}			
+		}
+		if (eventtimes.front() > t - minlag) {
+			if (i0_t == -1.0) {
+				i0_t = eventtimes.front();
+			}
+			if (i1_t == -1.0) {
+				i1_t = eventtimes.front();
+			}
+		}
+		eventtimes.pop();
+	}
+
+	until = std::min(i0_t != -1.0 ? std::nextafter(i0_t + maxlag, std::numeric_limits<double>::infinity())
+						: std::numeric_limits<double>::infinity(),
+				i1_t != -1.0 ? std::nextafter(i1_t + minlag, std::numeric_limits<double>::infinity())
+						: std::numeric_limits<double>::infinity());
+
+
+	//std::cerr<<"until: "<<until<<" t: "<<t<<std::endl;
+	assert(until>t);
+	return count >= theta;	
+}
 	
 protected:
 	int theta;
@@ -578,7 +627,7 @@ private:
 };
 
 // test if count of number of events of var testvar (-1 == currvar) at state teststate
-// from t-lag0 to t-lag1 is greater than thresh
+// from t-lag0 to t-lag1 is >= thresh
 class eventcounttest : public varstattest<eventcounttest> {
 public:
 	eventcounttest(int thresh=0, int testvar=0, double lag0=0, double lag1=1, int teststate = 0)
@@ -603,14 +652,14 @@ public:
 	};
 
 	bool evalstat(const statT &s) const {
-		return s.n>=theta;
+		return s.n >= theta;
 	}
 	virtual generic_state* getteststate() {return &teststate;}
 	
 protected:
 	int theta;
 	int auxv;
-	state_double teststate;
+	eventcount_state teststate;
 private:
 	friend class boost::serialization::access;
 	template<typename Ar>
@@ -796,8 +845,8 @@ public:
 					int &var, int &state, double maxt, const ctbn::Context &contexts) const;
 	double geteventaux(const ctbn::Trajectory &tr, double &t, double expsamp, double unisamp, double normsamp,
 					int &var, double maxt, const ctbn::Context &contexts, std::vector<double> &auxstarts, std::vector<double> &auxends, std::vector<double> &auxrates) const;
-	void Updatetraj(ctbn::Trajectory &temptr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, int index, int varid) const;
-	double Getlikelihood(int varid, int event, ctbn::Trajectory &temptr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, const std::vector<int> &own_var_list, double t_previous, double t0, double &rate, std::vector<double> &starts, std::vector<double> &ends) const;
+	//void Updatetraj(ctbn::Trajectory &temptr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, int index, int varid) const;
+	double Getlikelihood(int varid, int event, ctbn::Trajectory &tr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, const std::vector<int> &own_var_list, double t_previous, double t0, double &rate, std::vector<double> &starts, std::vector<double> &ends) const;
 	void StateInit(std::vector<shptr<generic_state> > &jointstate) const;
 	int Makeindex(std::vector<int> &indexes, int i) const;
 	void getnewstates(std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, int event, double t0, int index, int varid) const;
@@ -842,7 +891,7 @@ private:
 	void calcleaf(const ss &d, const pcimparams &p);
 
 	double getratevar(const ctbn::Trajectory &tr, int var, int state, double t, double &until, const pcim *&leaf) const;
-	double getratevar_simple(const ctbn::Trajectory &tr, int var, double t, double &until) const;
+	double getratevar_state(const ctbn::Trajectory &tr, std::vector<shptr<generic_state> > &jointstate, int varid, int testvar, double t, double &until, const std::vector<int> &testindexes, int index) const;
 	double getratevaraux(const ctbn::Trajectory &tr, int varid, int state, double t, double &until) const;
 
 

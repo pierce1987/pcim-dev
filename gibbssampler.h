@@ -4,7 +4,9 @@
 #include "pcim.h"
 
 using namespace std;
+
 typedef vector<shptr<generic_state> > js;
+
 struct ssumpcomp{
 	bool operator() (const js &lhs, const js &rhs){
 		for(int i = 0; i<lhs.size(); i++){
@@ -54,7 +56,7 @@ public:
 // intervals, then add in event via thinning. oldtr is used in thinning process. temptr is
 // used to take a jointstate and calculate rates. Initiliazed as tr (or oldtr), clear the whole
 // sampled var traj, then insert events according to the state.
-mutable ctbn::Trajectory tr,oldtr,temptr;
+mutable ctbn::Trajectory tr,oldtr;
 
 protected:
 	template<typename R>
@@ -175,9 +177,9 @@ protected:
 					jointstate = iter->first;
 					double p_previous = iter->second;
 					//temptr =  ctbn::Trajectory();
-					temptr.SetUnknown(varid,true);
+					//temptr.SetUnknown(varid,true);
 					double rate = -1.0;
-					p_previous += m->Getlikelihood(varid, event, temptr, jointstate, testindexes, own_var_list, t_previous, t0, rate, starts, ends); //log p
+					p_previous += m->Getlikelihood(varid, event, tr, jointstate, testindexes, own_var_list, t_previous, t0, rate, starts, ends); //log p
 					//cerr<<"p_previous: "<<p_previous<<endl;
 					//cerr<<"actual rate: "<<rate<<endl;
 					double p_keep = Getkeepprob(rate, t0); //not log prob
@@ -245,10 +247,10 @@ protected:
 					double p_previous = iter->second;
 
 					//temptr =  ctbn::Trajectory();
-					temptr.SetUnknown(varid,true);
+					//temptr.SetUnknown(varid,true);
 					double rate = -1.0;
 					//cerr<<"previous1: "<<p_previous<<endl;
-					p_previous += m->Getlikelihood(varid, event, temptr, jointstate, testindexes, own_var_list, t_previous, t0, rate, starts, ends);
+					p_previous += m->Getlikelihood(varid, event, tr, jointstate, testindexes, own_var_list, t_previous, t0, rate, starts, ends);
 					//cerr<<"previous2: "<<p_previous<<endl;
 					p_previous += log(rate);//evidence needs this
 					//cerr<<"previous3: "<<p_previous<<endl;
@@ -419,7 +421,6 @@ protected:
 			cerr<<auxrates[i]<<" in ( "<<auxstarts[i]<<","<<auxends[i]<<")"<<endl;
 		}
 		oldtr = tr;//use oldtr to maintain the previous sample
-		temptr = tr;
 
 		std::exponential_distribution<> expdist(1.0);
 		std::uniform_real_distribution<> unifdist(0.0,1.0);

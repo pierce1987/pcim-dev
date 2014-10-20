@@ -258,13 +258,13 @@ double pcim::getratevar(const ctbn::Trajectory &tr, int var, int state, double t
 	return (dir ? ttree : ftree)->getratevar(tr,var,state,t,until,leaf);
 }
 
-// Simple version of getratevar. Only care about state 0 for the variable.
-double pcim::getratevar_simple(const ctbn::Trajectory &tr, int var, double t, double &until) const {
+// getratevar that considers state.
+double pcim::getratevar_state(const ctbn::Trajectory &tr, std::vector<shptr<generic_state> > &jointstate, int varid, int testvar, double t, double &until, const std::vector<int> &testindexes, int index) const {
 	if (!test) {return rate;}//reached leaf
 	double til;
-	bool dir = test->eval(tr,eventtype(var, 0),t,til);
+	bool dir = test->neweval(tr, jointstate[index], varid, eventtype(testvar, 0),t,til);
 	if (til<until) until = til;
-	return (dir ? ttree : ftree)->getratevar_simple(tr,var,t,until);
+	return dir ? ttree -> getratevar_state(tr,jointstate, varid, testvar,t,until, testindexes, index + 1) : ftree -> getratevar_state(tr,jointstate, varid, testvar,t,until, testindexes, index+testindexes[index]);
 }
 
 // Get aux rate. If the current test result may depend on the current var, take the maximum of both branches.
@@ -290,27 +290,27 @@ double pcim::getratevaraux(const ctbn::Trajectory &tr, int varid, int state, dou
 		return (dir ? ttree : ftree)->getratevaraux(tr,varid,state,t,until);			
 	}
 }
-
+/*
 void pcim::Updatetraj(ctbn::Trajectory &temptr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, int index, int varid) const{
 	if(!test) {return;}
 	test->updatetraj(jointstate[index], temptr, varid);//need to consider -1 - to do
 	ttree -> Updatetraj(temptr, jointstate, testindexes, index + 1, varid);
 	ftree -> Updatetraj(temptr, jointstate, testindexes, index+testindexes[index], varid);	
 }
-
+*/
 // First argument should be the sampled varid, second argument is event. 
 // When calculating the likelihood, if not the sampled var, the
 // procedure is the same (in the else statement). If the sampled var, need to calculate likelihood in all
 // observed areas between t_previous and t0, no matter evidence or not (rate for evidence handled out of the
 // function).
-double pcim::Getlikelihood(int varid, int event, ctbn::Trajectory &temptr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, const std::vector<int> &own_var_list, double t_previous, double t0, double &rate, std::vector<double> &starts, std::vector<double> &ends) const{
-	//first update the traj
-	Updatetraj(temptr, jointstate, testindexes, 0, varid);
+double pcim::Getlikelihood(int varid, int event, ctbn::Trajectory &tr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, const std::vector<int> &own_var_list, double t_previous, double t0, double &rate, std::vector<double> &starts, std::vector<double> &ends) const{
+	//first update the traj - remove
+	//Updatetraj(temptr, jointstate, testindexes, 0, varid);
 	
 
 	//printtr(cout,temptr,3);
 	double P = 0.0;//log
-	for(int i = 0; i<own_var_list.size(); i++){
+	for(int i = 0; i < own_var_list.size(); i++){
 		//cerr<<"t_previous: "<<t_previous<<endl;
 		//cerr<<"t0: "<<t0<<endl;
 		//cerr<<"current var: "<<own_var_list[i]<<endl;
@@ -332,7 +332,8 @@ double pcim::Getlikelihood(int varid, int event, ctbn::Trajectory &temptr, std::
 				while(t_small < t0_small){
 
 					double until = numeric_limits<double>::infinity();
-					double temprate = getratevar_simple(temptr, own_var_list[i], t_small, until);
+
+					double temprate = getratevar_state(tr, jointstate, varid, own_var_list[i], t_small, until, testindexes, 0);
 					//cerr<<"rate: "<<temprate<<endl;
 					//cerr<<"until: "<<until<<endl;
 					if(until < t0_small){
@@ -349,7 +350,7 @@ double pcim::Getlikelihood(int varid, int event, ctbn::Trajectory &temptr, std::
 		//do this for all event. If the sampled event, do not add likelihood (taken care above.)
 		while(t < t0){
 			double until = numeric_limits<double>::infinity();
-			double temprate = getratevar_simple(temptr, own_var_list[i], t, until);
+			double temprate = getratevar_state(tr, jointstate, varid, own_var_list[i], t, until, testindexes, 0);
 			//cerr<<"rate: "<<temprate<<endl;
 			//cerr<<"until: "<<until<<endl;
 			if(until < t0){

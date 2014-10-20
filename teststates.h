@@ -46,13 +46,10 @@ public:
 };
 
 // This is used to maintain the state of varcounttest. A queue is used to maintain events from current - maxlag
-// to current time. Does not support testvar = -1 now. See TODO
+// to current time. 
 class varcount_state : public generic_state{
 public:
 	varcount_state():times() {}
-	varcount_state(double time):times() {
-		times.push(time);
-	}
 	varcount_state(std::queue<double> q) : times(q) {}
 	virtual shptr<generic_state> initialize() {
 		return boost::make_shared<varcount_state>(); 
@@ -76,10 +73,44 @@ public:
 	virtual bool islessthan(shptr<generic_state> rhs) const{
 		return (this->times < boost::dynamic_pointer_cast<varcount_state>(rhs)->times);
 	}
+	// TODO maybe a queue of pair<double, int> for eventtypes
 	std::queue<double> times;
 };
 
-// This is used to maintain the state of lasttest. 
+// This is used to maintain the state of varcounttest. A queue is used to maintain events from current - maxlag
+// to current time. 
+class eventcount_state : public generic_state{
+public:
+	eventcount_state():times() {}
+	eventcount_state(double time):times() {
+		times.push(time);
+	}
+	eventcount_state(std::queue<double> q) : times(q) {}
+	virtual shptr<generic_state> initialize() {
+		return boost::make_shared<eventcount_state>(); 
+	}
+	// Debug info.
+	virtual std::string getsig() {
+		return "eventcount_state";
+	}
+	virtual void print() const {
+		std::cerr<<"eventcount queue: ";
+		std::queue<double> temp = times;
+		while (!temp.empty()) {
+			std::cerr<<temp.front()<<" ";
+			temp.pop();		
+		}
+		std::cerr<<std::endl;
+	}
+	virtual bool isequal(shptr<generic_state> rhs) const{
+		return (this->times == boost::dynamic_pointer_cast<eventcount_state>(rhs)->times);
+	}
+	virtual bool islessthan(shptr<generic_state> rhs) const{
+		return (this->times < boost::dynamic_pointer_cast<eventcount_state>(rhs)->times);
+	}
+
+	std::queue<double> times;
+};
 
 
 #endif
