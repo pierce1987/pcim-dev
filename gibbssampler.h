@@ -17,13 +17,10 @@ struct ssumpcomp{
 		}
 		return false;
 	}
-
 };
 
 double log_add(double a, double b);
 int sample_unnorm(vector<double> &input, double r); 
-//Not used for now.
-bool IsInUnobserved(std::vector<double> &starts, std::vector<double> &ends, double t);
 
 bool GetPreviousState(map<js, vector<pair<js, pair<double,bool> > >, ssumpcomp> &transmap, js &jointstate, double prob);
 
@@ -87,7 +84,6 @@ protected:
 	// Sample initial trajectory that agrees with evidence *evid.
 	void SampleInitialTrajectory() const;
 	void Clearcurrentvar(int var) const;
-	void GetUnobservedIntervals(int varid) const;
 	void GetAuxRates(int varid, int card) const;
 	void ClearInitTraj();
 	double getnextevent(double t0, int &event) const;
@@ -96,12 +92,10 @@ protected:
 
 	template<typename R>
 	void Thinning(int varid, R &rand) const{
-		if(starts.empty())
-			return;
+
 		std::uniform_real_distribution<> unifdist(0.0,1.0);
 		//forward pass
 		int T_event = 0; //event count
-
 		/////
 		js jointstate, jointstate1;//temp container of one joint state
 
@@ -179,7 +173,7 @@ protected:
 					//temptr =  ctbn::Trajectory();
 					//temptr.SetUnknown(varid,true);
 					double rate = -1.0;
-					p_previous += m->Getlikelihood(varid, event, tr, jointstate, testindexes, own_var_list, t_previous, t0, rate, starts, ends); //log p
+					p_previous += m->Getlikelihood(varid, event, tr, jointstate, testindexes, own_var_list, t_previous, t0, rate, allstarts[varid], allends[varid]); //log p
 					//cerr<<"p_previous: "<<p_previous<<endl;
 					//cerr<<"actual rate: "<<rate<<endl;
 					double p_keep = Getkeepprob(rate, t0); //not log prob
@@ -250,7 +244,7 @@ protected:
 					//temptr.SetUnknown(varid,true);
 					double rate = -1.0;
 					//cerr<<"previous1: "<<p_previous<<endl;
-					p_previous += m->Getlikelihood(varid, event, tr, jointstate, testindexes, own_var_list, t_previous, t0, rate, starts, ends);
+					p_previous += m->Getlikelihood(varid, event, tr, jointstate, testindexes, own_var_list, t_previous, t0, rate, allstarts[varid], allends[varid]);
 					//cerr<<"previous2: "<<p_previous<<endl;
 					p_previous += log(rate);//evidence needs this
 					//cerr<<"previous3: "<<p_previous<<endl;
@@ -411,8 +405,9 @@ protected:
 		//only use Context for the current variable
 		ctbn::Context varcontext;
 		varcontext.AddVar(var, context->Cardinality(var));
-		//get unobserved intervals for the current variable (info in starts and ends)
-		GetUnobservedIntervals(var);
+		if (allstarts[var].empty()) {
+			return;
+		}
 		//get omega intervals (info in auxstarts, auxends, and auxrates)
 		GetAuxRates(var, context->Cardinality(var));
 		cerr<<"auxrates:"<<endl;
@@ -426,10 +421,10 @@ protected:
 		std::uniform_real_distribution<> unifdist(0.0,1.0);
 		std::normal_distribution<> normdist(0.0,1.0);		
 		//cerr<<"BEFORE"<<endl;printtr(cout,oldtr,3);
-		for(int i = 0; i < starts.size(); i++){ // for each unobserved intervals
+		for(int i = 0; i < allstarts[var].size(); i++){ // for each unobserved intervals
 			//from samplecomplete
-			double t = starts[i];
-			double T = ends[i];	
+			double t = allstarts[var][i];
+			double T = allends[var][i];	
 			double lastt=t;
 
 			// tr->oldtr?? no, should use tr, which is fixed during sampling virtual events
@@ -456,8 +451,8 @@ protected:
 	const ctbn::Context *context;//contexts of all vars
 	std::vector<int> testindexes;
 	std::vector<int> own_var_list;
-	mutable std::vector<double> starts; //times when unobserved intervals start, for the current variable
-	mutable std::vector<double> ends; //times when unobserved intervals ends, for the current variable
+	std::vector<std::vector<double>> allstarts; //times when unobserved intervals start, for all variables, initialized in constructor
+	std::vector<std::vector<double>> allends; //times when unobserved intervals ends, for all variables
 	const pcim *m;
 	const ctbn::Trajectory *evid;
 	ctbn::Trajectory *init_traj; 

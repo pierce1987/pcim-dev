@@ -27,16 +27,6 @@ int sample_unnorm(vector<double> &input, double r) {
   
 }
 
-bool IsInUnobserved(std::vector<double> &starts, std::vector<double> &ends, double t){
-	if(starts.empty())
-		return false;
-	for(int i = 0; i<starts.size(); i++){
-		if(t > starts[i] && t < ends[i])
-			return true;
-	}
-	return false;
-}
-
 bool GetPreviousState(map<vector<shptr<generic_state> >, vector<pair<vector<shptr<generic_state> >, pair<double,bool> > >, ssumpcomp> &transmap, vector<shptr<generic_state> > &jointstate, double p){
 	//cerr<<"starting..."<<endl;
 	bool keep = false;
@@ -80,8 +70,8 @@ double GibbsAuxSampler::getnextevent(double t0, int &event) const{
 bool GibbsAuxSampler::IsVirtual(double t0, int event, int varid) const{
 	if(event != varid)
 		return false;
-	for(int i=0; i<starts.size(); i++){
-		if(t0>=starts[i] && t0<=ends[i])
+	for(int i=0; i<allstarts[varid].size(); i++){
+		if(t0>=allstarts[varid][i] && t0<=allends[varid][i])
 			return true;
 	}
 	return false;
@@ -108,6 +98,39 @@ GibbsAuxSampler::GibbsAuxSampler(const pcim *model, const ctbn::Trajectory *evid
 	testindexes.resize(m->counttest());		
 	model->Makeindex(testindexes,0);
 	//Initialize();
+	// Get starts and ends
+	for (int i = 0; i < own_var_list.size(); ++i) {
+		int varid = own_var_list[i];
+		vector<double> start;
+		vector<double> end;
+		if (evid->GetVarTraj(varid).empty()) {
+			allstarts.push_back(start);
+			allends.push_back(end);
+			continue;
+		}
+		decltype(evid->GetVarTraj(varid).begin()) it, tmpend;
+		it = evid->GetVarTraj(varid).begin();
+		tmpend = evid->GetVarTraj(varid).end();
+		while(it!=tmpend){
+			if(it->second == -2)
+				start.push_back(it->first);
+			if(it->second == -3)
+				end.push_back(it->first);
+			it++;
+		}
+		allstarts.push_back(start);
+		allends.push_back(end);
+	}
+	for (int i = 0; i < own_var_list.size(); ++i) {
+		cerr<<"for variable "<<own_var_list[i]<<endl;
+		vector<double> start = allstarts[i];
+		vector<double> end = allends[i];
+		for (int j = 0; j < start.size(); ++j) {
+			cerr<<"from "<<start[j]<<" to "<<end[j]<<endl;
+		}		
+	}
+
+
 }
 
 GibbsAuxSampler::~GibbsAuxSampler() {
@@ -178,24 +201,6 @@ void GibbsAuxSampler::ClearInitTraj() {
 	}
 }
 
-//TODO calculate only once?
-void GibbsAuxSampler::GetUnobservedIntervals(int varid) const{
-	starts.clear();
-	ends.clear();
-	if (evid->GetVarTraj(varid).empty()) 
-		return;
-	decltype(evid->GetVarTraj(varid).begin()) it, tmpend;
-	it = evid->GetVarTraj(varid).begin();
-	tmpend = evid->GetVarTraj(varid).end();
-	while(it!=tmpend){
-		if(it->second == -2)
-			starts.push_back(it->first);
-		if(it->second == -3)
-			ends.push_back(it->first);
-		it++;
-	}	
-}
-
 //fill auxstarts auxends and auxrates;
 void GibbsAuxSampler::GetAuxRates(int varid, int card) const{
 
@@ -203,18 +208,17 @@ void GibbsAuxSampler::GetAuxRates(int varid, int card) const{
 	auxends.clear();
 	auxrates.clear();
 
-	for(int i = 0; i < starts.size(); i++){
-		double t = starts[i];
-		double T = ends[i];
+	for(int i = 0; i < allstarts[varid].size(); i++){
+		double t = allstarts[varid][i];
+		double T = allends[varid][i];
 		double lastt=t;
 		double until;
 		double r;
 
-		while((t = m->getauxrates(tr,lastt,card,until,r,varid))<T) {
+		while((t = m->getauxrates(tr,lastt,card,until,r,varid)) < T) {
 			if(until >= T){ until = T; break;}
-			//cerr<<"here: "<<"r: "<<r<<" t: "<<t<<" until: "<<until<<endl;
 			//merge intervals when we can
-			if(!auxrates.empty() && abs(2*r - auxrates[auxrates.size()-1])<0.00001 && abs(t - auxends[auxends.size()-1])<0.00001)
+			if(!auxrates.empty() && abs(2*r - auxrates[auxrates.size()-1]) < 0.00001 && abs(t - auxends[auxends.size()-1]) < 0.00001)
 				auxends[auxends.size()-1] = until;
 			else{
 				auxstarts.push_back(t);
@@ -223,8 +227,7 @@ void GibbsAuxSampler::GetAuxRates(int varid, int card) const{
 			}
 			lastt = until; //proceed no matter event kept or not
 		}
-		//cerr<<"here: "<<"r: "<<r<<" t: "<<t<<" until: "<<until<<endl;
-		if(!auxrates.empty() && abs(2*r - auxrates[auxrates.size()-1])<0.00001 && abs(t - auxends[auxends.size()-1])<0.00001)
+		if(!auxrates.empty() && abs(2*r - auxrates[auxrates.size()-1]) < 0.00001 && abs(t - auxends[auxends.size()-1]) < 0.00001)
 			auxends[auxends.size()-1] = until;
 		else{
 			auxstarts.push_back(t);
@@ -234,12 +237,3 @@ void GibbsAuxSampler::GetAuxRates(int varid, int card) const{
 	}
 	
 }
-
-
-
-
-
-
-
-
-

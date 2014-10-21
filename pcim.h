@@ -518,7 +518,7 @@ public:
 */
 
 
-		if (event != -1) {
+		if (event == varid) {
 			eventtimes.push(t0);
 		}
 		
@@ -558,21 +558,7 @@ public:
 	
 	}
 
-	// only need to update the sampled var
-	/*virtual void updatetraj(shptr<generic_state> teststate, ctbn::Trajectory &temptr, int varid) {
-		if (auxv != -1 && auxv != varid) {
-			return;
-		}
-
-		std::queue<double> eventtimes = boost::dynamic_pointer_cast<varcount_state>(teststate)->times;
-		while (!eventtimes.empty()) {
-			// TODO should handle different states
-			temptr.AddTransition(varid, eventtimes.front(), 0);
-			//std::cerr<<"inserted...."<<eventtimes.front()<<" to "<<varid<std::endl;
-			eventtimes.pop();
-		}
-	}*/
-
+	// This assumes that the queue has been updated correctly, for example, for eventcounttest, the queue should only contain times of the queried event. Also, if auxv = -1, the queue should only have events of the sampled var. 
 	virtual bool neweval(const ctbn::Trajectory &tr, shptr<generic_state> &state, int varid, eventtype event, double t, double &until) const {
 	if (event.var != varid) {
 		return eval(tr, event, t, until);
@@ -846,7 +832,7 @@ public:
 	double geteventaux(const ctbn::Trajectory &tr, double &t, double expsamp, double unisamp, double normsamp,
 					int &var, double maxt, const ctbn::Context &contexts, std::vector<double> &auxstarts, std::vector<double> &auxends, std::vector<double> &auxrates) const;
 	//void Updatetraj(ctbn::Trajectory &temptr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, int index, int varid) const;
-	double Getlikelihood(int varid, int event, ctbn::Trajectory &tr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, const std::vector<int> &own_var_list, double t_previous, double t0, double &rate, std::vector<double> &starts, std::vector<double> &ends) const;
+	double Getlikelihood(int varid, int event, ctbn::Trajectory &tr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, const std::vector<int> &own_var_list, double t_previous, double t0, double &rate, const std::vector<double> &starts, const std::vector<double> &ends) const;
 	void StateInit(std::vector<shptr<generic_state> > &jointstate) const;
 	int Makeindex(std::vector<int> &indexes, int i) const;
 	void getnewstates(std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, int event, double t0, int index, int varid) const;

@@ -77,7 +77,7 @@ public:
 	std::queue<double> times;
 };
 
-// This is used to maintain the state of varcounttest. A queue is used to maintain events from current - maxlag
+// This is used to maintain the state of eventcounttest. A queue is used to maintain events from current - maxlag
 // to current time. 
 class eventcount_state : public generic_state{
 public:

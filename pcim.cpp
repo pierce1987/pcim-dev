@@ -303,7 +303,7 @@ void pcim::Updatetraj(ctbn::Trajectory &temptr, std::vector<shptr<generic_state>
 // procedure is the same (in the else statement). If the sampled var, need to calculate likelihood in all
 // observed areas between t_previous and t0, no matter evidence or not (rate for evidence handled out of the
 // function).
-double pcim::Getlikelihood(int varid, int event, ctbn::Trajectory &tr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, const std::vector<int> &own_var_list, double t_previous, double t0, double &rate, std::vector<double> &starts, std::vector<double> &ends) const{
+double pcim::Getlikelihood(int varid, int event, ctbn::Trajectory &tr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, const std::vector<int> &own_var_list, double t_previous, double t0, double &rate, const std::vector<double> &starts, const std::vector<double> &ends) const{
 	//first update the traj - remove
 	//Updatetraj(temptr, jointstate, testindexes, 0, varid);
 	
