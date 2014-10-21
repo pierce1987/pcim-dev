@@ -239,11 +239,10 @@ double pcim::getrate(const ctbn::Trajectory &tr, double t, double &until,
 
 //new
 double pcim::getauxrates(const ctbn::Trajectory &tr, double &t, int card, double &until, double &r, double varid) const {
-	//cerr<<"begin: "<<"card: "<<card<<" t: "<<t<<" until: "<<until<<" r: "<<r<<" id:"<<varid<<endl;
 	until = numeric_limits<double>::infinity();
 	r = 0.0;
 	//only sample one variable in the gibbs sampler
-	for(int s=0; s<card; s++){
+	for(int s = 0; s < card; s++){
 		r += getratevaraux(tr,varid,s,t,until);
 	}
 	return t;
@@ -272,43 +271,28 @@ double pcim::getratevaraux(const ctbn::Trajectory &tr, int varid, int state, dou
 	if (!test) { return rate; }
 	double til;
 	if(test->getauxv() == -1 || test->getauxv() == varid){ //use maximum!
-		//test->eval(tr,eventtype(varid, state),t,til);
-		//cout<<"til1: "<<til<<endl;
-		//if (til<until) until = til;
 		double until1 = until;
 		double until2 = until;
 		double rate1 = ttree -> getratevaraux(tr,varid,state,t,until1);
 		double rate2 = ftree -> getratevaraux(tr,varid,state,t,until2);	
-		until = until1<until2? until1 : until2;
-		//cout<<"rate1: "<<rate1<<" rate2: "<<rate2<<endl;
+		until = until1 < until2? until1 : until2;
 		return rate1 > rate2? rate1 : rate2;				
 	}
 	else{
 		bool dir = test->eval(tr,eventtype(varid, state),t,til);
-		//cout<<"til2: "<<til<<endl;
-		if (til<until) until = til;
+		if (til < until) until = til;
 		return (dir ? ttree : ftree)->getratevaraux(tr,varid,state,t,until);			
 	}
 }
-/*
-void pcim::Updatetraj(ctbn::Trajectory &temptr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, int index, int varid) const{
-	if(!test) {return;}
-	test->updatetraj(jointstate[index], temptr, varid);//need to consider -1 - to do
-	ttree -> Updatetraj(temptr, jointstate, testindexes, index + 1, varid);
-	ftree -> Updatetraj(temptr, jointstate, testindexes, index+testindexes[index], varid);	
-}
-*/
+
 // First argument should be the sampled varid, second argument is event. 
 // When calculating the likelihood, if not the sampled var, the
 // procedure is the same (in the else statement). If the sampled var, need to calculate likelihood in all
 // observed areas between t_previous and t0, no matter evidence or not (rate for evidence handled out of the
 // function).
 double pcim::Getlikelihood(int varid, int event, ctbn::Trajectory &tr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, const std::vector<int> &own_var_list, double t_previous, double t0, double &rate, const std::vector<double> &starts, const std::vector<double> &ends) const{
-	//first update the traj - remove
-	//Updatetraj(temptr, jointstate, testindexes, 0, varid);
-	
 
-	//printtr(cout,temptr,3);
+	//printtr(cout,tr,3);
 	double P = 0.0;//log
 	for(int i = 0; i < own_var_list.size(); i++){
 		//cerr<<"t_previous: "<<t_previous<<endl;

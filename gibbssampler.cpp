@@ -28,7 +28,7 @@ int sample_unnorm(vector<double> &input, double r) {
 }
 
 bool GetPreviousState(map<vector<shptr<generic_state> >, vector<pair<vector<shptr<generic_state> >, pair<double,bool> > >, ssumpcomp> &transmap, vector<shptr<generic_state> > &jointstate, double p){
-	//cerr<<"starting..."<<endl;
+
 	bool keep = false;
         vector<double> logprobs;
 	auto iter = transmap.find(jointstate);
@@ -70,8 +70,8 @@ double GibbsAuxSampler::getnextevent(double t0, int &event) const{
 bool GibbsAuxSampler::IsVirtual(double t0, int event, int varid) const{
 	if(event != varid)
 		return false;
-	for(int i=0; i<allstarts[varid].size(); i++){
-		if(t0>=allstarts[varid][i] && t0<=allends[varid][i])
+	for(int i = 0; i < allstarts[varid].size(); i++){
+		if(t0 >= allstarts[varid][i] && t0 <= allends[varid][i])
 			return true;
 	}
 	return false;
@@ -87,7 +87,6 @@ double GibbsAuxSampler::Getkeepprob(double rate, double t0) const{
 }
 
 GibbsAuxSampler::GibbsAuxSampler(const pcim *model, const ctbn::Trajectory *evidence, const ctbn::Context *contexts, int burnin) {
-
 	m = model;
 	init_traj = NULL;
 	evid = evidence;
@@ -97,7 +96,6 @@ GibbsAuxSampler::GibbsAuxSampler(const pcim *model, const ctbn::Trajectory *evid
 	own_var_list = contexts->VarList();
 	testindexes.resize(m->counttest());		
 	model->Makeindex(testindexes,0);
-	//Initialize();
 	// Get starts and ends
 	for (int i = 0; i < own_var_list.size(); ++i) {
 		int varid = own_var_list[i];
@@ -121,16 +119,6 @@ GibbsAuxSampler::GibbsAuxSampler(const pcim *model, const ctbn::Trajectory *evid
 		allstarts.push_back(start);
 		allends.push_back(end);
 	}
-	for (int i = 0; i < own_var_list.size(); ++i) {
-		cerr<<"for variable "<<own_var_list[i]<<endl;
-		vector<double> start = allstarts[i];
-		vector<double> end = allends[i];
-		for (int j = 0; j < start.size(); ++j) {
-			cerr<<"from "<<start[j]<<" to "<<end[j]<<endl;
-		}		
-	}
-
-
 }
 
 GibbsAuxSampler::~GibbsAuxSampler() {
