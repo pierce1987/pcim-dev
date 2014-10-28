@@ -73,7 +73,7 @@ public:
 	virtual bool islessthan(shptr<generic_state> rhs) const{
 		return (this->times < boost::dynamic_pointer_cast<varcount_state>(rhs)->times);
 	}
-	// TODO maybe a queue of pair<double, int> for eventtypes? NO? 
+
 	std::queue<double> times;
 };
 
@@ -82,9 +82,6 @@ public:
 class eventcount_state : public generic_state{
 public:
 	eventcount_state():times() {}
-	eventcount_state(double time):times() {
-		times.push(time);
-	}
 	eventcount_state(std::queue<double> q) : times(q) {}
 	virtual shptr<generic_state> initialize() {
 		return boost::make_shared<eventcount_state>(); 

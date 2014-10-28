@@ -619,7 +619,80 @@ public:
 		return s.n >= theta;
 	}
 	virtual generic_state* getteststate() {return &teststate;}
-	
+	// The queue needs to maintain every instance from t0 - minlag until t0, between 
+	// t0 - maxlag and t0 - minlag, only at most theta instances are needed.
+	// auxv = -1 means test current var in the test. event = -1 means do not keep the virtual event.
+	virtual shptr<generic_state> stateupdate(shptr<generic_state> &state, eventtype event, double t0, int varid) const{
+		
+		if (auxv != -1 && auxv != varid) {
+			return state;
+		}
+		std::queue<double> eventtimes = boost::dynamic_pointer_cast<eventcount_state>(state)->times;
+		if (event.var == varid && event.state == s) { // takes care of event.var == -1
+			eventtimes.push(t0);
+		}		
+		while (!eventtimes.empty() && eventtimes.front() < t0 - maxlag) {
+			eventtimes.pop();	
+		}
+		// In many cases minlag == 0, can save some time
+		if (minlag == 0) {
+			while (eventtimes.size() > theta) {
+				eventtimes.pop();
+			}
+			return boost::make_shared<eventcount_state>(eventtimes); 			
+		}
+		std::queue<double> result;
+		while (!eventtimes.empty() && eventtimes.front() >= t0 - maxlag && eventtimes.front() <= t0 - minlag) {		
+			result.push(eventtimes.front());
+			eventtimes.pop();
+			if (result.size() > theta) {
+				result.pop();
+			}
+		}
+		while (!eventtimes.empty()) {		
+			result.push(eventtimes.front());
+			eventtimes.pop();
+		}
+		return boost::make_shared<eventcount_state>(result); 	
+	}
+
+	virtual bool neweval(const ctbn::Trajectory &tr, shptr<generic_state> &state, int varid, eventtype event, double t, double &until) const {
+		if (auxv != -1 && auxv!=varid) {
+			return eval(tr, event, t, until);
+		}
+		// use state
+		std::queue<double> eventtimes = boost::dynamic_pointer_cast<eventcount_state>(state)->times;	
+		double i0_t = -1.0;
+		double i1_t = -1.0;
+		int count = 0;
+		while (!eventtimes.empty()) {
+			if (eventtimes.front() >= t - maxlag && eventtimes.front() <= t - minlag) {
+				count++;
+				if (i0_t == -1.0) {
+					i0_t = eventtimes.front();
+				}			
+			}
+			if (eventtimes.front() > t - minlag) {
+				if (i0_t == -1.0) {
+					i0_t = eventtimes.front();
+				}
+				if (i1_t == -1.0) {
+					i1_t = eventtimes.front();
+				}
+			}
+			eventtimes.pop();
+		}
+
+		until = std::min(i0_t != -1.0 ? std::nextafter(i0_t + maxlag, std::numeric_limits<double>::infinity())
+				: std::numeric_limits<double>::infinity(),
+				i1_t != -1.0 ? std::nextafter(i1_t + minlag, std::numeric_limits<double>::infinity())
+				: std::numeric_limits<double>::infinity());
+
+
+		//std::cerr<<"until: "<<until<<" t: "<<t<<std::endl;
+		assert(until>t);
+		return count >= theta;	
+	}	
 protected:
 	int theta;
 	int auxv;

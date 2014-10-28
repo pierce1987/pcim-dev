@@ -55,7 +55,11 @@ int main(int argc, char **argv) {
 //				new pcim(new varcounttest(1, 0, 0.0, 5.0),new pcim(0.5),new pcim(0.3)));
 
 
-	pcim truemodel(new varcounttest(1, 0, 3.0, 5.0),				
+	//pcim truemodel(new varcounttest(1, 0, 3.0, 5.0),				
+	//			new pcim(2),				
+	//			new pcim(0.1));
+	
+	pcim truemodel(new eventcounttest(1, 0, 3.0, 5.0),				
 				new pcim(2),				
 				new pcim(0.1));
 	truemodel.print(cout); cout << endl;

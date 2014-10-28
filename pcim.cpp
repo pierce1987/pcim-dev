@@ -244,7 +244,7 @@ double pcim::getauxrates(const ctbn::Trajectory &tr, double &t, int card, double
 	for(int s = 0; s < card; s++){
 		r += getratevaraux(tr,varid,s,t,until);
 	}*/
-	//only sample one variable in the gibbs sampler, save for all states so just multiply
+	//only sample one variable in the gibbs sampler, same for all states so just multiply
 	r = card * getratevaraux(tr,varid,0,t,until);
 	return t;
 }

@@ -142,7 +142,7 @@ protected:
 				//cerr<<"event: "<<event<<"t0:"<<t0<<endl;
 				
 				//for each exsiting state
-				//cerr<<"SIZE: "<<allstates[T_event-1].size()<<endl;
+				cerr<<"SIZE: "<<allstates[T_event-1].size()<<endl;
 			/*for(auto iter = allstates[T_event-1].begin(); iter!=allstates[T_event-1].end();iter++){
 				for(int i = 0; i<iter->first.size(); i++){
 					cerr<<"content: ";
@@ -298,7 +298,7 @@ protected:
 					}
 
 					cerr<<"with P: "<<(it2->second.first)<<endl;
-					cerr<<"keep?: "<<(it2->second.second)<<endl;
+					cerr<<"state?: "<<(it2->second.second)<<endl;
 				}
 
 			}
