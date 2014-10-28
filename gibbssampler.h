@@ -21,7 +21,7 @@ struct ssumpcomp{
 
 double log_add(double a, double b);
 int sample_unnorm(vector<double> &input, double r); 
-bool GetPreviousState(map<js, vector<pair<js, pair<double,bool>>>, ssumpcomp> &transmap, js &jointstate, double prob);
+int GetPreviousState(map<js, vector<pair<js, pair<double,int>>>, ssumpcomp> &transmap, js &jointstate, double prob);
 
 class GibbsAuxSampler{
 public:
@@ -80,9 +80,9 @@ protected:
 	void Clearcurrentvar(int var) const;
 	void GetAuxRates(int varid, int card) const;
 	void ClearInitTraj();
-	double getnextevent(double t0, int &event) const;
-	bool IsVirtual(double t0, int event, int varid) const;
-	double Getkeepprob(double rate, double t0) const;
+	double getnextevent(double t0, eventtype &event) const;
+	bool IsVirtual(double t0, eventtype event, int varid) const;
+	vector<double> Getkeepprob(vector<double> rates, double t0) const;
 
 	// Assumes that the trajectory ends with an event
 	template<typename R>
@@ -102,9 +102,9 @@ protected:
 		vector<double> times;
 		//TODO: use typedef
 		map<js, double, ssumpcomp> timestate; //state table at one time,temp
-		map<js, vector<pair<js, pair<double,bool>>>, ssumpcomp> transmap;//state transition at one time
+		map<js, vector<pair<js, pair<double,int>>>, ssumpcomp> transmap;//state transition at one time
 		vector<map<js, double, ssumpcomp>> allstates;
-		vector<map<js, vector<pair<js, pair<double,bool>>>, ssumpcomp>> alltrans;
+		vector<map<js, vector<pair<js, pair<double,int>>>, ssumpcomp>> alltrans;
 		timestate.insert(pair<js, double>(jointstate, 0.0));//initial state, with log prob
 		allstates.push_back(timestate);
 		//cerr<<"size: "<<jointstate.size()<<endl;
@@ -126,7 +126,7 @@ protected:
 
 		double t0 = 0;//starts[0]-0.001; should not use starts[0] if doing tr insertion
 		double t_previous = 0;
-		int event = varid;
+		eventtype event;
 		for(;;) { //until the last event
 		
 			timestate.clear();
@@ -158,55 +158,56 @@ protected:
 					double p_previous = iter->second;
 					//temptr =  ctbn::Trajectory();
 					//temptr.SetUnknown(varid,true);
-					double rate = -1.0;
-					p_previous += m->Getlikelihood(varid, event, tr, jointstate, testindexes, own_var_list, t_previous, t0, rate, allstarts[varid], allends[varid]); //log p
+					vector<double> rates;
+					p_previous += m->Getlikelihood(varid, event, tr, jointstate, testindexes, own_var_list, t_previous, t0, rates, *context, allstarts[varid], allends[varid]); //log p
 					//cerr<<"p_previous: "<<p_previous<<endl;
 					//cerr<<"actual rate: "<<rate<<endl;
-					double p_keep = Getkeepprob(rate, t0); //not log prob
+					vector<double> p_keep = Getkeepprob(rates, t0); //not log prob
 					//double p_keep = Getkeepprob(m->getrate_test(event, t0, testindexes), t0);
 					//cerr<<"p_keep: "<<log(p_keep)<<endl;
-	
-					//Case: keep event
 					jointstate1 = jointstate;//jointstate1: the previous state
-					m->getnewstates(jointstate, testindexes, event, t0, 0, varid);
+					//Case: keep event,consider all states
+					for (int s = 0; s < p_keep.size(); ++s) {
+						jointstate = jointstate1;
+						m->getnewstates(jointstate, testindexes, eventtype(event.var, s), t0, 0, varid);
 
-					auto it = timestate.find(jointstate); 
-					if(it != timestate.end())
-						//it->second = it->second + (p_previous*p_keep);
-						it->second = log_add(it->second, (p_previous + log(p_keep)));
-					else
-						timestate.insert(pair<js, double>(jointstate, p_previous + log(p_keep)));		
+						auto it = timestate.find(jointstate); 
+						if(it != timestate.end())
+							it->second = log_add(it->second, (p_previous + log(p_keep[s])));
+						else
+							timestate.insert(pair<js, double>(jointstate, p_previous + log(p_keep[s])));		
 					
 
-					auto transit = transmap.find(jointstate); 
-					if(transit != transmap.end()){
-						(transit->second).push_back(pair<js, pair<double,bool> >(jointstate1, make_pair(p_previous + log(p_keep),true)));
-					}
+						auto transit = transmap.find(jointstate); 
+						if(transit != transmap.end()){
+							(transit->second).push_back(pair<js, pair<double,int>>(jointstate1, make_pair(p_previous + log(p_keep[s]),s)));
+						}
 						
-					else{
-						vector<pair<js, pair<double,bool>>> tempvec;
-						tempvec.push_back(pair<js, pair<double,bool>>(jointstate1, make_pair(p_previous + log(p_keep),true)));
-						transmap.insert(pair<js, vector<pair<js, pair<double,bool>>>>(jointstate, tempvec));		
+						else{
+							vector<pair<js, pair<double,int>>> tempvec;
+							tempvec.push_back(pair<js, pair<double,int>>(jointstate1, make_pair(p_previous + log(p_keep[s]),s)));
+							transmap.insert(pair<js, vector<pair<js, pair<double,int>>>>(jointstate, tempvec));		
+						}
 					}
-					
 					//case: do not keep event
 					jointstate = jointstate1;
-					m->getnewstates(jointstate, testindexes, -1, t0, 0, varid);
-					it = timestate.find(jointstate); 
+					m->getnewstates(jointstate, testindexes, eventtype(-1,0), t0, 0, varid);
+					auto it = timestate.find(jointstate); 
+					double p_sum = accumulate(p_keep.begin(), p_keep.end(), 0);
 					if(it != timestate.end())
-						it->second = log_add(it->second, (p_previous + log(1 - p_keep)));
+						it->second = log_add(it->second, (p_previous + log(1 - p_sum)));
 					else
-						timestate.insert(pair<js, double>(jointstate, p_previous + log(1 - p_keep)));		
+						timestate.insert(pair<js, double>(jointstate, p_previous + log(1 - p_sum)));		
 					
-					transit = transmap.find(jointstate); 
+					auto transit = transmap.find(jointstate); 
 					if(transit != transmap.end()) {
-						(transit->second).push_back(pair<js, pair<double,bool>>(jointstate1, make_pair(p_previous + log(1 - p_keep),false)));
+						(transit->second).push_back(pair<js, pair<double,int>>(jointstate1, make_pair(p_previous + log(1 - p_sum),-1)));
 					}
 						
 					else{
-						vector<pair<js, pair<double,bool>>> tempvec;
-						tempvec.push_back(pair<js, pair<double,bool>>(jointstate1, make_pair(p_previous + log(1 - p_keep),false)));
-						transmap.insert(pair<js, vector<pair<js, pair<double,bool>>>>(jointstate, tempvec));		
+						vector<pair<js, pair<double,int>>> tempvec;
+						tempvec.push_back(pair<js, pair<double,int>>(jointstate1, make_pair(p_previous + log(1 - p_sum),-1)));
+						transmap.insert(pair<js, vector<pair<js, pair<double,int>>>>(jointstate, tempvec));		
 					}
 
 				}	
@@ -225,11 +226,11 @@ protected:
 
 					//temptr =  ctbn::Trajectory();
 					//temptr.SetUnknown(varid,true);
-					double rate = -1.0;
+					vector<double> rates;
 					//cerr<<"previous1: "<<p_previous<<endl;
-					p_previous += m->Getlikelihood(varid, event, tr, jointstate, testindexes, own_var_list, t_previous, t0, rate, allstarts[varid], allends[varid]);
+					p_previous += m->Getlikelihood(varid, event, tr, jointstate, testindexes, own_var_list, t_previous, t0, rates, *context, allstarts[varid], allends[varid]);
 					//cerr<<"previous2: "<<p_previous<<endl;
-					p_previous += log(rate);//evidence needs this
+					p_previous += log(rates[event.state]);//evidence needs this
 					//cerr<<"previous3: "<<p_previous<<endl;
 
 
@@ -243,13 +244,13 @@ protected:
 
 					auto transit = transmap.find(jointstate); 
 					if(transit != transmap.end()) {
-						(transit->second).push_back(pair<js, pair<double,bool> >(jointstate1, make_pair(p_previous,false)));
+						(transit->second).push_back(pair<js, pair<double,int>>(jointstate1, make_pair(p_previous,-1)));
 					}
 						
 					else{
-						vector<pair<js, pair<double,bool>>> tempvec;
-						tempvec.push_back(pair<js, pair<double,bool>>(jointstate1, make_pair(p_previous,false)));
-						transmap.insert(pair<js, vector<pair<js, pair<double,bool>>>>(jointstate, tempvec));		
+						vector<pair<js, pair<double,int>>> tempvec;
+						tempvec.push_back(pair<js, pair<double,int>>(jointstate1, make_pair(p_previous,-1)));
+						transmap.insert(pair<js, vector<pair<js, pair<double,int>>>>(jointstate, tempvec));		
 					}	
 					
 				}
@@ -352,10 +353,13 @@ protected:
 
 	for(;T_event >= 0; T_event--){
 	p = log(unifdist(rand));
-	bool keep = GetPreviousState(alltrans[T_event], jointstate, p);	
+	int keep = GetPreviousState(alltrans[T_event], jointstate, p);	
 	//cerr<<"time: "<<times[T_event]<<endl;
-	if(keep)
-		tr.AddTransition(varid, times[T_event], 0);
+	if(keep == -2) {
+		assert(1==0);
+	}
+	if(keep != -1)
+		tr.AddTransition(varid, times[T_event], keep);
 /*	cerr<<"previous state:"<<endl;
 	for(int i = 0; i<jointstate.size(); i++){
 		cerr<<"content: ";
@@ -395,14 +399,14 @@ protected:
 			double t = allstarts[var][i];
 			double T = allends[var][i];	
 			double lastt=t;
-
 			while((t = m->geteventaux(tr,lastt,expdist(rand),unifdist(rand),normdist(rand),var,T,varcontext,auxstarts,auxends,auxrates)) < T) {				
 				oldtr.AddTransition(var, t, 0);	
+				cerr<<"sampled: "<<"var: "<<var<<" t: "<<t<<endl;
 				lastt = t; //proceed no matter event kept or not
 			}
 		}
 
-		Clearcurrentvar(var);//clear events in unobserved areas for *tr*! Use thinning result to add events
+		Clearcurrentvar(var);//clear events in unobserved areas for *tr*. Use thinning result to add events
 		Thinning(var, rand); //thinning oldtr, in backward pass add events to tr.
 	}
 

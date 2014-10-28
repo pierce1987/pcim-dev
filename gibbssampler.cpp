@@ -27,9 +27,9 @@ int sample_unnorm(vector<double> &input, double r) {
   
 }
 
-bool GetPreviousState(map<vector<shptr<generic_state> >, vector<pair<vector<shptr<generic_state> >, pair<double,bool> > >, ssumpcomp> &transmap, vector<shptr<generic_state> > &jointstate, double p){
+int GetPreviousState(map<vector<shptr<generic_state>>, vector<pair<vector<shptr<generic_state> >, pair<double,int>>>, ssumpcomp> &transmap, vector<shptr<generic_state>> &jointstate, double p) {
 
-	bool keep = false;
+	int keep = -2;
         vector<double> logprobs;
 	auto iter = transmap.find(jointstate);
 	logprobs.reserve(iter->second.size());
@@ -46,7 +46,7 @@ bool GetPreviousState(map<vector<shptr<generic_state> >, vector<pair<vector<shpt
 }
 
 
-double GibbsAuxSampler::getnextevent(double t0, int &event) const{
+double GibbsAuxSampler::getnextevent(double t0, eventtype &event) const{
 	double min_time = 10000000000;
 	double old_min = min_time;
 	map<double, int>::const_iterator tempitr;
@@ -55,7 +55,8 @@ double GibbsAuxSampler::getnextevent(double t0, int &event) const{
 		if( tempitr != oldtr.GetVarTraj(own_var_list[var]).end()){
 			if(tempitr->first < min_time){
 				min_time = tempitr->first;
-				event = own_var_list[var];
+				event.var = own_var_list[var];
+				event.state = tempitr->second;
 			}
 		}
 	}
@@ -67,8 +68,8 @@ double GibbsAuxSampler::getnextevent(double t0, int &event) const{
 		return min_time;
 }
 
-bool GibbsAuxSampler::IsVirtual(double t0, int event, int varid) const{
-	if(event != varid)
+bool GibbsAuxSampler::IsVirtual(double t0, eventtype event, int varid) const{
+	if(event.var != varid)
 		return false;
 	for(int i = 0; i < allstarts[varid].size(); i++){
 		if(t0 >= allstarts[varid][i] && t0 <= allends[varid][i])
@@ -77,13 +78,18 @@ bool GibbsAuxSampler::IsVirtual(double t0, int event, int varid) const{
 	return false;
 }
 
-double GibbsAuxSampler::Getkeepprob(double rate, double t0) const{
+vector<double> GibbsAuxSampler::Getkeepprob(vector<double> rates, double t0) const{
+	vector<double> probs;
 	for(int i = 0; i<auxstarts.size(); i++){
-		if(t0 > auxstarts[i] && t0 < auxends[i])
-			return rate/auxrates[i];
+		if(t0 > auxstarts[i] && t0 < auxends[i]) {
+			for (int j = 0; j < rates.size(); ++j)
+			probs.push_back(rates[j]/auxrates[i]);
+		}
 	}
-	cerr<<"error1!!!!"<<endl;
-
+	if (probs.empty()) {
+		cerr<<"error1!!!!"<<endl;
+	}
+	return probs;
 }
 
 GibbsAuxSampler::GibbsAuxSampler(const pcim *model, const ctbn::Trajectory *evidence, const ctbn::Context *contexts, int burnin) {
@@ -94,6 +100,10 @@ GibbsAuxSampler::GibbsAuxSampler(const pcim *model, const ctbn::Trajectory *evid
 	context = contexts;
 	burntin = false;
 	own_var_list = contexts->VarList();
+	/*for(auto &p : *contexts) {
+		cerr<<"VAR: "<<p.first<<endl;
+		cerr<<"STATE: "<<p.second<<endl; 
+	}*/
 	testindexes.resize(m->counttest());		
 	model->Makeindex(testindexes,0);
 	// Get starts and ends

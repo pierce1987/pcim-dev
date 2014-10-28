@@ -64,7 +64,7 @@ int main(int argc, char **argv) {
 	int nvar = 2;
 
 	ctbn::Context contexts;
-	contexts.AddVar(0, 1);
+	contexts.AddVar(0, 2);
 	contexts.AddVar(1, 1);
 	//contexts.AddVar(2, 1);
 
@@ -166,7 +166,7 @@ tr.AddTransition(0, 9.7, 0);*/
 	high_resolution_clock::time_point t1 = high_resolution_clock::now();
 
 	GibbsAuxSampler sampler(&truemodel, &tr, &contexts, 0); //tr is evidence, last param is burn-in round
-	sampler.SampleTrajectories(t,w,10,randgen);//3rd param: # of samples wanted
+	sampler.SampleTrajectories(t,w,1,randgen);//3rd param: # of samples wanted
 
 	high_resolution_clock::time_point t2 = high_resolution_clock::now();
 	auto duration = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();

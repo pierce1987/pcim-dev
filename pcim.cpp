@@ -240,11 +240,12 @@ double pcim::getrate(const ctbn::Trajectory &tr, double t, double &until,
 //new
 double pcim::getauxrates(const ctbn::Trajectory &tr, double &t, int card, double &until, double &r, double varid) const {
 	until = numeric_limits<double>::infinity();
-	r = 0.0;
-	//only sample one variable in the gibbs sampler
+	/*r = 0.0;	
 	for(int s = 0; s < card; s++){
 		r += getratevaraux(tr,varid,s,t,until);
-	}
+	}*/
+	//only sample one variable in the gibbs sampler, save for all states so just multiply
+	r = card * getratevaraux(tr,varid,0,t,until);
 	return t;
 }
 
@@ -258,12 +259,12 @@ double pcim::getratevar(const ctbn::Trajectory &tr, int var, int state, double t
 }
 
 // getratevar that considers state.
-double pcim::getratevar_state(const ctbn::Trajectory &tr, std::vector<shptr<generic_state> > &jointstate, int varid, int testvar, double t, double &until, const std::vector<int> &testindexes, int index) const {
+double pcim::getratevar_state(const ctbn::Trajectory &tr, std::vector<shptr<generic_state> > &jointstate, int varid, eventtype testevent, double t, double &until, const std::vector<int> &testindexes, int index) const {
 	if (!test) {return rate;}//reached leaf
 	double til;
-	bool dir = test->neweval(tr, jointstate[index], varid, eventtype(testvar, 0),t,til);
+	bool dir = test->neweval(tr, jointstate[index], varid, testevent,t,til);
 	if (til<until) until = til;
-	return dir ? ttree -> getratevar_state(tr,jointstate, varid, testvar,t,until, testindexes, index + 1) : ftree -> getratevar_state(tr,jointstate, varid, testvar,t,until, testindexes, index+testindexes[index]);
+	return dir ? ttree -> getratevar_state(tr,jointstate, varid, testevent,t,until, testindexes, index + 1) : ftree -> getratevar_state(tr,jointstate, varid, testevent,t,until, testindexes, index+testindexes[index]);
 }
 
 // Get aux rate. If the current test result may depend on the current var, take the maximum of both branches.
@@ -290,8 +291,9 @@ double pcim::getratevaraux(const ctbn::Trajectory &tr, int varid, int state, dou
 // procedure is the same (in the else statement). If the sampled var, need to calculate likelihood in all
 // observed areas between t_previous and t0, no matter evidence or not (rate for evidence handled out of the
 // function).
-double pcim::Getlikelihood(int varid, int event, ctbn::Trajectory &tr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, const std::vector<int> &own_var_list, double t_previous, double t0, double &rate, const std::vector<double> &starts, const std::vector<double> &ends) const{
-
+double pcim::Getlikelihood(int varid, eventtype event, ctbn::Trajectory &tr, std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, const std::vector<int> &own_var_list, double t_previous, double t0, std::vector<double> &rates, const ctbn::Context &contexts, const std::vector<double> &starts, const std::vector<double> &ends) const{
+	//cerr<<"starting...."<<endl;
+	rates.reserve(contexts.Cardinality(event.var));
 	//printtr(cout,tr,3);
 	double P = 0.0;//log
 	for(int i = 0; i < own_var_list.size(); i++){
@@ -300,7 +302,6 @@ double pcim::Getlikelihood(int varid, int event, ctbn::Trajectory &tr, std::vect
 		//cerr<<"current var: "<<own_var_list[i]<<endl;
 		//cerr<<"varid: "<<varid<<endl;
 		
-		double t = t_previous;
 		// for the sampled var only
 		if(varid == own_var_list[i]) {
 			//cerr<<"t0: "<<t0<<endl;
@@ -309,52 +310,59 @@ double pcim::Getlikelihood(int varid, int event, ctbn::Trajectory &tr, std::vect
 			vector<double> obstarts;
 			vector<double> obends;
 			GetObservedIntervals(t_previous, t0, starts, ends, obstarts, obends);
-			for (int j = 0; j < obstarts.size(); ++j) {
-				// This two mimics t and t0, but only for one observed interval
-				double t_small = obstarts[j];
-				double t0_small = obends[j];
-				while(t_small < t0_small){
+			for (int state = 0; state < contexts.Cardinality(own_var_list[i]); ++state) {
+				for (int j = 0; j < obstarts.size(); ++j) {
+					// This two mimics t and t0, but only for one observed interval
+					double t_small = obstarts[j];
+					double t0_small = obends[j];
+					while(t_small < t0_small){
 
-					double until = numeric_limits<double>::infinity();
+						double until = numeric_limits<double>::infinity();
 
-					double temprate = getratevar_state(tr, jointstate, varid, own_var_list[i], t_small, until, testindexes, 0);
-					//cerr<<"rate: "<<temprate<<endl;
-					//cerr<<"until: "<<until<<endl;
-					if(until < t0_small){
-						//cerr<<"until-t: "<<until-t<<endl; 
-						P += -1*temprate*(until-t_small);
+						double temprate = getratevar_state(tr, jointstate, varid, eventtype(own_var_list[i],state), t_small, until, testindexes, 0);
+						//cerr<<"rate: "<<temprate<<endl;
+						//cerr<<"until: "<<until<<endl;
+						if(until < t0_small){
+							//cerr<<"until-t: "<<until-t<<endl; 
+							P += -1*temprate*(until-t_small);
+						}
+						else{
+							P += -1*temprate*(t0_small-t_small);
+						}
+						t_small = until;
 					}
-					else{
-						P += -1*temprate*(t0_small-t_small);
-					}
-					t_small = until;
 				}
 			}
 		}
 		//do this for all event. If the sampled event, do not add likelihood (taken care above.)
-		while(t < t0){
-			double until = numeric_limits<double>::infinity();
-			double temprate = getratevar_state(tr, jointstate, varid, own_var_list[i], t, until, testindexes, 0);
-			//cerr<<"rate: "<<temprate<<endl;
-			//cerr<<"until: "<<until<<endl;
-			if(until < t0){
-				//cerr<<"until-t: "<<until-t<<endl; 
-				if (varid != own_var_list[i]) {
-					P += -1*temprate*(until-t);
+		for (int state = 0; state < contexts.Cardinality(own_var_list[i]); ++state) {
+			double t = t_previous;
+			//cerr<<"current state: "<<state<<endl;
+			while(t < t0){
+				double until = numeric_limits<double>::infinity();
+				double temprate = getratevar_state(tr, jointstate, varid, eventtype(own_var_list[i],state), t, until, testindexes, 0);
+				//cerr<<"rate: "<<temprate<<endl;
+				//cerr<<"until: "<<until<<endl;
+				if(until < t0){
+					//cerr<<"until-t: "<<until-t<<endl; 
+					if (varid != own_var_list[i]) {
+						P += -1*temprate*(until-t);
+					}
 				}
+				else{
+					if (varid != own_var_list[i]) {
+						P += -1*temprate*(t0-t);
+					}
+					//cerr<<"var: "<<event.var<<" "<<own_var_list[i]<<endl;
+					if (event.var == own_var_list[i]) {
+						rates.push_back(temprate);
+					}
+				}
+				t = until;
 			}
-			else{
-				if (varid != own_var_list[i]) {
-					P += -1*temprate*(t0-t);
-				}
-				if (event == own_var_list[i]) {
-					rate = temprate;
-				}
-			}
-			t = until;
 		}
 	}
-	if (rate == -1.0) {
+	if (rates.empty()) {
 		cerr<<"Error, did not get correct rate"<<endl;	
 	}
 	//cerr<<"finished a loop"<<endl;
@@ -382,7 +390,7 @@ int pcim::counttest() const{
 	return 1 + ttree -> counttest() + ftree->counttest();
 }
 
-void pcim::getnewstates(std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, int event, double t0, int index, int varid) const{
+void pcim::getnewstates(std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, eventtype event, double t0, int index, int varid) const{
 	if(!test) {return;}
 	jointstate[index] = test->stateupdate(jointstate[index], event, t0, varid);
 	ttree -> getnewstates(jointstate, testindexes, event, t0, index+1, varid);

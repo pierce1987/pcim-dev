@@ -73,7 +73,7 @@ public:
 	virtual bool islessthan(shptr<generic_state> rhs) const{
 		return (this->times < boost::dynamic_pointer_cast<varcount_state>(rhs)->times);
 	}
-	// TODO maybe a queue of pair<double, int> for eventtypes
+	// TODO maybe a queue of pair<double, int> for eventtypes? NO? 
 	std::queue<double> times;
 };
 
