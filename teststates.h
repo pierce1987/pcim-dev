@@ -45,6 +45,33 @@ public:
 	double lasttime;
 };
 
+// This is used to maintain the state of lasttest. An int is used to maintain the last state of testvar
+// default value is 0 (even no last state, consider it to be 0) 
+class last_state : public generic_state{
+public:
+	last_state() { laststate = 0; }
+	last_state(int i) { laststate = i; }
+	virtual shptr<generic_state> initialize() {
+		return boost::make_shared<last_state>(); 
+	}
+	// Debug info.
+	virtual std::string getsig() {
+		return "last_state";
+	}
+	virtual void print() const {
+		std::cerr<<"last state: ";
+		std::cerr<<laststate<<std::endl;
+	}
+	virtual bool isequal(shptr<generic_state> rhs) const{
+		return (this->laststate == boost::dynamic_pointer_cast<last_state>(rhs)->laststate);
+	}
+	virtual bool islessthan(shptr<generic_state> rhs) const{
+		return (this->laststate < boost::dynamic_pointer_cast<last_state>(rhs)->laststate);
+	}
+
+	int laststate;
+};
+
 // This is used to maintain the state of varcounttest. A queue is used to maintain events from current - maxlag
 // to current time. 
 class varcount_state : public generic_state{

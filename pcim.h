@@ -90,20 +90,21 @@ private:
 	}
 };
 
-// tests if last state of testvar == teststate (if no last state, state taken to be 0)
+// tests if last state of testvar == teststate (if no last state, s taken to be 0)
+// testvar can be -1.
 class lasttest : public pcimtest {
 public:
 	lasttest(int testvar=0, int teststate=0) {
 		v = testvar;
-		state = teststate;
+		s = teststate;
 		auxv = v;
 	}
 	virtual ~lasttest() {}
 	virtual void print(std::ostream &os) const {
-		os << "most recent " << v << " == " << state;
+		os << "most recent " << v << " == " << s;
 	}
 	virtual void print(std::ostream &os, const datainfo &info) const {
-		os << "most recent state for " << info.dvarname(v) << " == " << state;
+		os << "most recent state for " << info.dvarname(v) << " == " << s;
 	}
 	virtual int getauxv() const {
 		return auxv;
@@ -118,14 +119,14 @@ public:
 		auto i0 = tr.upper_bound(t0);
 		if (i0!=tr.begin()) --i0;
 		auto i1 = tr.lower_bound(tend);
-		bool currval = (i0==e ? 0 : i0->second) == state;
+		bool currval = (i0==e ? 0 : i0->second) == s;
 		double t1 = i0->first;
 		while(t1<tend && i0!=e) {
 			++i0;
 			while (i0!=e && i0->first<=t1) ++i0;
 			if (i0==e || i0->first>=tend) t1 = tend;
 			else t1 = i0->first;
-			bool newval = (i0==e ? 0 : i0->second) == state;
+			bool newval = (i0==e ? 0 : i0->second) == s;
 			if (!newval && currval) {
 				outtrue.emplace_back(in,t0,t1);
 				t0 = t1;
@@ -143,17 +144,17 @@ public:
 	}
 	virtual bool eval(const ctbn::Trajectory &tr, eventtype event, double t) const {
 		const ctbn::VarTrajectory &vtr = tr.GetVarTraj(v==-1?event.var:v);
-		if (vtr.empty()) return 0 == state;
+		if (vtr.empty()) return 0 == s;
 		auto i0 = vtr.lower_bound(t);
-		if (i0==vtr.cend() || i0->first>t) --i0;
-		return (i0==vtr.cend() ? 0 : i0->second) == state;
+		if (i0==vtr.cend() || i0->first>t) --i0; //if i0 points to the first event, --i0 would do nothing, in the next line i0->second may not be 0
+		return (i0==vtr.cend() ? 0 : i0->second) == s;
 	}
 
 	virtual bool eval(const ctbn::Trajectory &tr, eventtype event, double t, double &until) const {
 		const ctbn::VarTrajectory &vtr = tr.GetVarTraj(v==-1?event.var:v);
 		if (vtr.empty()) {
 			until = std::numeric_limits<double>::infinity();
-			return 0 == state;
+			return 0 == s;
 		}
 		auto i0 = vtr.lower_bound(t);
 		auto e = vtr.cend();
@@ -162,22 +163,42 @@ public:
 		else ++i1;
 		until = i1!=e ? i1->first : std::numeric_limits<double>::infinity();
 		assert(until>t);
-		return (i0==e ? 0 : i0->second) == state;
+		return (i0==e ? 0 : i0->second) == s;
 	}
 
 	virtual generic_state* getteststate() {return &teststate;}
 
+	// The int needs to maintain last state of testvar.
+	// auxv = -1 means test current var. event = -1 means do not keep the virtual event.
+	virtual shptr<generic_state> stateupdate(shptr<generic_state> &state, eventtype event, double t0, int varid) const{
+		
+		if ((auxv != -1 && auxv != varid) || event.var != varid) {
+			return state;
+		}
+		return boost::make_shared<last_state>(event.state); 	
+	}
+
+	virtual bool neweval(const ctbn::Trajectory &tr, shptr<generic_state> &state, int varid, eventtype event, double t, double &until) const {
+		if (auxv != varid && (auxv != -1 || event.var != varid)) {
+			return eval(tr, event, t, until);
+		}
+		// use state
+		until = std::numeric_limits<double>::infinity();
+		int lstate = boost::dynamic_pointer_cast<last_state>(state)->laststate;	
+		return lstate == s;	
+	}
+
 protected:
-	int state;
+	int s;
 	int v;
 	int auxv; //used to decide aux rate, -2 means does not care 
-	state_double teststate;
+	last_state teststate;
 private:
 	friend class boost::serialization::access;
 	template<typename Ar>
 	void serialize(Ar &ar, const unsigned int ver) {
 		ar & BOOST_SERIALIZATION_BASE_OBJECT_NVP(pcimtest);
-		ar & BOOST_SERIALIZATION_NVP(v) & BOOST_SERIALIZATION_NVP(state) & BOOST_SERIALIZATION_NVP(auxv);
+		ar & BOOST_SERIALIZATION_NVP(v) & BOOST_SERIALIZATION_NVP(s) & BOOST_SERIALIZATION_NVP(auxv);
 	}
 };
 
@@ -538,7 +559,7 @@ public:
 	}
 
 	virtual bool neweval(const ctbn::Trajectory &tr, shptr<generic_state> &state, int varid, eventtype event, double t, double &until) const {
-		if (auxv != -1 && auxv!=varid) {
+		if (auxv != varid && (auxv != -1 || event.var != varid)) {
 			return eval(tr, event, t, until);
 		}
 		// use state
@@ -624,7 +645,7 @@ public:
 	// auxv = -1 means test current var in the test. event = -1 means do not keep the virtual event.
 	virtual shptr<generic_state> stateupdate(shptr<generic_state> &state, eventtype event, double t0, int varid) const{
 		
-		if (auxv != -1 && auxv != varid) {
+		if (auxv != -1 && auxv != varid) { //this condition is not generic
 			return state;
 		}
 		std::queue<double> eventtimes = boost::dynamic_pointer_cast<eventcount_state>(state)->times;
@@ -657,7 +678,8 @@ public:
 	}
 
 	virtual bool neweval(const ctbn::Trajectory &tr, shptr<generic_state> &state, int varid, eventtype event, double t, double &until) const {
-		if (auxv != -1 && auxv!=varid) {
+		// use state when ask about the current sampled var. That would be auxv==varid, or auxv==-1 && event.var=varid
+		if (auxv != varid && (auxv != -1 || event.var != varid)) {
 			return eval(tr, event, t, until);
 		}
 		// use state

@@ -59,9 +59,14 @@ int main(int argc, char **argv) {
 	//			new pcim(2),				
 	//			new pcim(0.1));
 	
-	pcim truemodel(new eventcounttest(1, 0, 3.0, 5.0),				
+	//pcim truemodel(new eventcounttest(1, 0, 3.0, 5.0),				
+	//			new pcim(2),				
+	//			new pcim(0.1));
+
+	pcim truemodel(new lasttest(-1, 1),
 				new pcim(2),				
 				new pcim(0.1));
+
 	truemodel.print(cout); cout << endl;
 	random_device rd;
 
