@@ -72,6 +72,28 @@ public:
 	int laststate;
 };
 
+// This is used to maintain the state of timetest. No data structure is needed.
+class time_state : public generic_state{
+public:
+	time_state() {}
+	virtual shptr<generic_state> initialize() {
+		return boost::make_shared<time_state>(); 
+	}
+	// Debug info.
+	virtual std::string getsig() {
+		return "time_state";
+	}
+	virtual void print() const {
+		std::cerr<<"time state: ";
+	}
+	virtual bool isequal(shptr<generic_state> rhs) const{
+		return true;
+	}
+	virtual bool islessthan(shptr<generic_state> rhs) const{
+		return false;
+	}
+};
+
 // This is used to maintain the state of varcounttest. A queue is used to maintain events from current - maxlag
 // to current time. 
 class varcount_state : public generic_state{
@@ -136,5 +158,48 @@ public:
 	std::queue<double> times;
 };
 
+// This is used to maintain the state of vartest. No data structure is needed.
+class var_state : public generic_state{
+public:
+	var_state() {}
+	virtual shptr<generic_state> initialize() {
+		return boost::make_shared<var_state>(); 
+	}
+	// Debug info.
+	virtual std::string getsig() {
+		return "var_state";
+	}
+	virtual void print() const {
+		std::cerr<<"var state: ";
+	}
+	virtual bool isequal(shptr<generic_state> rhs) const{
+		return true;
+	}
+	virtual bool islessthan(shptr<generic_state> rhs) const{
+		return false;
+	}
+};
+
+// This is used to maintain the state of eventtest. No data structure is needed.
+class event_state : public generic_state{
+public:
+	event_state() {}
+	virtual shptr<generic_state> initialize() {
+		return boost::make_shared<event_state>(); 
+	}
+	// Debug info.
+	virtual std::string getsig() {
+		return "event_state";
+	}
+	virtual void print() const {
+		std::cerr<<"event state: ";
+	}
+	virtual bool isequal(shptr<generic_state> rhs) const{
+		return true;
+	}
+	virtual bool islessthan(shptr<generic_state> rhs) const{
+		return false;
+	}
+};
 
 #endif

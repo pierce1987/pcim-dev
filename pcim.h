@@ -353,10 +353,19 @@ public:
 	}
 
 	virtual generic_state* getteststate() {return &teststate;}
+
+	// The state is always the same
+	virtual shptr<generic_state> stateupdate(shptr<generic_state> &state, eventtype event, double t0, int varid) const{
+		return state;	
+	}
+
+	virtual bool neweval(const ctbn::Trajectory &tr, shptr<generic_state> &state, int varid, eventtype event, double t, double &until) const {
+		return eval(tr, event, t, until);	
+	}
 private:
 	double t0,t1,m;
 	int auxv; // -2, do not relate to event
-	state_double teststate;
+	time_state teststate;
 private:
 	friend class boost::serialization::access;
 	template<typename Ar>
@@ -755,10 +764,18 @@ public:
 		return event.var==v;
 	}
 	virtual generic_state* getteststate() {return &teststate;}
+
+	// The state is always the same
+	virtual shptr<generic_state> stateupdate(shptr<generic_state> &state, eventtype event, double t0, int varid) const{
+		return state;	
+	}
+	virtual bool neweval(const ctbn::Trajectory &tr, shptr<generic_state> &state, int varid, eventtype event, double t, double &until) const {
+		return eval(tr, event, t, until);	
+	}
 private:
 	int v;
 	int auxv;
-	state_double teststate;
+	var_state teststate;
 private:
 	friend class boost::serialization::access;
 	template<typename Ar>
@@ -768,7 +785,7 @@ private:
 	}
 };
 
-// test if current event == testevent
+// test if current event == testevent, this supports testvar to be -1, thus only checks state.
 class eventtest : public pcimtest {
 public:
 	eventtest(int testvar=0, int teststate=0) : pcimtest() { v = testvar; s = teststate; auxv = -2;};
@@ -796,11 +813,18 @@ public:
 		return (event.state==s);
 	}
 	virtual generic_state* getteststate() {return &teststate;}
+	// The state is always the same
+	virtual shptr<generic_state> stateupdate(shptr<generic_state> &state, eventtype event, double t0, int varid) const{
+		return state;	
+	}
+	virtual bool neweval(const ctbn::Trajectory &tr, shptr<generic_state> &state, int varid, eventtype event, double t, double &until) const {
+		return eval(tr, event, t, until);	
+	}
 private:
 	int v;
 	int s;
 	int auxv;
-	state_double teststate;
+	event_state teststate;
 private:
 	friend class boost::serialization::access;
 	template<typename Ar>
