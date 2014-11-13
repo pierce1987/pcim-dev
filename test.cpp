@@ -126,6 +126,8 @@ int main(int argc, char **argv) {
 */
 
 	ctbn::Trajectory tr = ctbn::Trajectory();
+	tr.SetEndTime(6.7);
+	//cerr<<"current endtime: "<<tr.
 	/*tr.AddTransition(0, 1, 0);
 	tr.AddTransition(0, 3, 1);
 	tr.AddTransition(0, 4, -1);

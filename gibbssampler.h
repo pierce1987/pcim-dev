@@ -133,7 +133,48 @@ protected:
 			transmap.clear();
 			t0 = getnextevent(t0, event); //event gets the next event label
 			//cerr<<"next event is "<<event<<" at "<<t0<<endl;
-			if(t0 == -1.0) break;
+			//if(t0 == -1.0) break;
+			if (t0 == -1.0) { // for ending time
+				cerr<<"endtime: "<<endtime<<endl;
+				if (endtime == times.back()) { //tr ends with an event
+					break;
+				}
+				T_event++;
+				times.push_back(endtime);
+				for(auto iter = allstates[T_event-1].begin(); iter!=allstates[T_event-1].end();iter++){
+					jointstate = iter->first;
+					double p_previous = iter->second;
+					//temptr =  ctbn::Trajectory();
+					//temptr.SetUnknown(varid,true);
+					vector<double> rates;
+					p_previous += m->Getlikelihood(varid, event, tr, jointstate, testindexes, own_var_list, t_previous, endtime, rates, *context, allstarts[varid], allends[varid]); //log p
+					cerr<<"p_previous: "<<p_previous<<endl;
+					jointstate1 = jointstate;//jointstate1: the previous state
+					jointstate = jointstate1;
+					m->getnewstates(jointstate, testindexes, eventtype(-1,0), endtime, 0, varid);
+					auto it = timestate.find(jointstate); 
+
+					if(it != timestate.end())
+						it->second = log_add(it->second, (p_previous));
+					else
+						timestate.insert(pair<js, double>(jointstate, p_previous));		
+					
+					auto transit = transmap.find(jointstate); 
+					if(transit != transmap.end()) {
+						(transit->second).push_back(pair<js, pair<double,int>>(jointstate1, make_pair(p_previous,-1)));
+					}
+						
+					else{
+						vector<pair<js, pair<double,int>>> tempvec;
+						tempvec.push_back(pair<js, pair<double,int>>(jointstate1, make_pair(p_previous,-1)));
+						transmap.insert(pair<js, vector<pair<js, pair<double,int>>>>(jointstate, tempvec));		
+					}
+				}
+				allstates.push_back(timestate);
+				alltrans.push_back(transmap);
+				break;								
+		
+			}
 			times.push_back(t0);
 			T_event++; //push time (event count) forward
 			bool isvirtual = IsVirtual(t0, event, varid);
@@ -350,27 +391,27 @@ protected:
 	}
 	cerr<<T_event<<endl;*/
 	T_event--;
-
-	for(;T_event >= 0; T_event--){
-	p = log(unifdist(rand));
-	int keep = GetPreviousState(alltrans[T_event], jointstate, p);	
-	//cerr<<"time: "<<times[T_event]<<endl;
-	if(keep == -2) {
-		assert(1==0);
-	}
-	if(keep != -1)
-		tr.AddTransition(varid, times[T_event], keep);
-/*	cerr<<"previous state:"<<endl;
-	for(int i = 0; i<jointstate.size(); i++){
-		cerr<<"content: ";
-		jointstate[i]->print();
-		cerr<<endl;
-	}
-	cerr<<"keep? "<<keep<<endl;*/
+	
+	for (;T_event >= 0; T_event--) {
+		p = log(unifdist(rand));
+		int keep = GetPreviousState(alltrans[T_event], jointstate, p);	
+		//cerr<<"time: "<<times[T_event]<<endl;
+		if(keep == -2) {
+			assert(1==0);
+		}
+		if(keep != -1)
+			tr.AddTransition(varid, times[T_event], keep);
+	/*	cerr<<"previous state:"<<endl;
+		for(int i = 0; i<jointstate.size(); i++){
+			cerr<<"content: ";
+			jointstate[i]->print();
+			cerr<<endl;
+		}
+		cerr<<"keep? "<<keep<<endl;*/
 		
 
 	}
-	
+
 
 	}//end of Thinning
 

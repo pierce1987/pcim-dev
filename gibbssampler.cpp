@@ -96,6 +96,8 @@ GibbsAuxSampler::GibbsAuxSampler(const pcim *model, const ctbn::Trajectory *evid
 	m = model;
 	init_traj = NULL;
 	evid = evidence;
+	begintime = evid->TimeBegin();
+	endtime = evid->TimeEnd();
 	numBurninIter = burnin;
 	context = contexts;
 	burntin = false;
