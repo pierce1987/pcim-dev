@@ -146,6 +146,12 @@ public:
 		const ctbn::VarTrajectory &vtr = tr.GetVarTraj(v==-1?event.var:v);
 		if (vtr.empty()) return 0 == s;
 		auto i0 = vtr.lower_bound(t);
+		if (i0==vtr.begin()) { 
+			if (t==i0->first) {
+				return s == i0->second;
+			}
+			return 0 == s;
+		} // try to fix the next line. 
 		if (i0==vtr.cend() || i0->first>t) --i0; //if i0 points to the first event, --i0 would do nothing, in the next line i0->second may not be 0
 		return (i0==vtr.cend() ? 0 : i0->second) == s;
 	}
@@ -159,6 +165,17 @@ public:
 		auto i0 = vtr.lower_bound(t);
 		auto e = vtr.cend();
 		auto i1 = i0;
+		if (i0 == vtr.begin()) {
+			if (t==i0->first) {
+				++i1;
+				until = i1!=e ? i1->first : std::numeric_limits<double>::infinity();
+				assert(until>t);
+				return i0->second == s;
+			}
+			until = i0->first;
+			assert(until>t);
+			return 0 == s;
+		}
 		if (i0==e || i0->first>t) --i0;
 		else ++i1;
 		until = i1!=e ? i1->first : std::numeric_limits<double>::infinity();
