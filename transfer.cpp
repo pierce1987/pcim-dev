@@ -19,7 +19,7 @@ pcim* rwogenerator(istream& is, int var, int state, int ds){
 }
 
 pcim* matrixgenerator(istream& is, int var, int state, int ds){
-		
+	
 	if(state == ds-2){
 		pcim* temp = new pcim(new lasttest(var, state), rwogenerator(is, var, 0, ds), rwogenerator(is, var, 0, ds));
 		return temp;
@@ -37,11 +37,15 @@ pcim* nodegenerator(istream& is, int var, int parentindex, int state, ctbn::Cont
 		return temp;
 	}	
 
+	if(state == contexts.Cardinality(id)-1){
+		pcim *temp = nodegenerator(is, var, parentindex+1, 0, contexts, ds);
+		return temp;
+	}
+
 	if(parentindex == contexts.VarList().size()-1){
 		pcim *temp = new pcim(new lasttest(id, state), matrixgenerator(is, var, 0, ds), nodegenerator(is, var, parentindex, state+1, contexts, ds));
 		return temp;
 	}
-		
 	pcim *temp = new pcim(new lasttest(id, state), nodegenerator(is, var, parentindex+1, 0, contexts, ds), nodegenerator(is, var, parentindex, state+1, contexts, ds));
 	return temp;
 	
