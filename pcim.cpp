@@ -240,12 +240,15 @@ double pcim::getrate(const ctbn::Trajectory &tr, double t, double &until,
 //new
 double pcim::getauxrates(const ctbn::Trajectory &tr, double &t, int card, double &until, double &r, double varid) const {
 	until = numeric_limits<double>::infinity();
-	/*r = 0.0;	
+	r = 0.0;	
 	for(int s = 0; s < card; s++){
-		r += getratevaraux(tr,varid,s,t,until);
-	}*/
-	//only sample one variable in the gibbs sampler, same for all states so just multiply
-	r = card * getratevaraux(tr,varid,0,t,until);
+		double tmp = getratevaraux(tr,varid,s,t,until);
+		//cerr<<"tmp: "<<tmp<<endl;
+		r += tmp;
+	}
+	//cerr<<"r: "<<r<<endl;
+	//only sample one variable in the gibbs sampler, same for all states so just multiply - problem for eventtest
+	//r = card * getratevaraux(tr,varid,0,t,until);
 	return t;
 }
 
@@ -262,7 +265,16 @@ double pcim::getratevar(const ctbn::Trajectory &tr, int var, int state, double t
 double pcim::getratevar_state(const ctbn::Trajectory &tr, std::vector<shptr<generic_state> > &jointstate, int varid, eventtype testevent, double t, double &until, const std::vector<int> &testindexes, int index) const {
 	if (!test) {return rate;}//reached leaf
 	double til;
+	//cerr<<"111111111"<<endl;
+	//cerr<<"size: "<<jointstate.size()<<endl;
+	//cerr<<"index: "<<index<<endl;
+	//for(int i = 0; i<jointstate.size(); i++){
+		//cerr<<"content!!!!!!: "<<i;
+		//jointstate[i]->print();
+		//cerr<<endl;
+	//}
 	bool dir = test->neweval(tr, jointstate[index], varid, testevent,t,til);
+	//cerr<<"true or false? "<<dir<<endl;
 	if (til<until) until = til;
 	return dir ? ttree -> getratevar_state(tr,jointstate, varid, testevent,t,until, testindexes, index + 1) : ftree -> getratevar_state(tr,jointstate, varid, testevent,t,until, testindexes, index+testindexes[index]);
 }
@@ -304,6 +316,7 @@ double pcim::Getlikelihood(int varid, eventtype event, ctbn::Trajectory &tr, std
 		
 		// for the sampled var only
 		if(varid == own_var_list[i]) {
+			//cerr<<"in here?"<<endl;
 			//cerr<<"t0: "<<t0<<endl;
 			// first get observed intervals between t_previous and t0, then propograte each interval
 			// and get likelihood
@@ -362,6 +375,7 @@ double pcim::Getlikelihood(int varid, eventtype event, ctbn::Trajectory &tr, std
 			}
 		}
 	}
+	//cerr<<"rate size: "<<rates.size()<<endl;
 	if (rates.empty()) {
 		cerr<<"Error, did not get correct rate"<<endl;	
 	}
@@ -374,7 +388,7 @@ int pcim::Makeindex(vector<int> &indexes, int i) const{
 	if(!test) {return 0;}
 	int nleft = ttree->Makeindex(indexes, i+1);
 	indexes[i] = nleft+1;
-	return ftree->Makeindex(indexes, indexes[i]) + indexes[i];
+	return ftree->Makeindex(indexes, i+indexes[i]) + indexes[i];
 }
 
 // Get initilized state vector in order.
