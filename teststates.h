@@ -72,6 +72,31 @@ public:
 	int laststate;
 };
 
+class lastvar_state : public generic_state{
+public:
+	lastvar_state() { last = false; }
+	lastvar_state(bool i) { last = i; }
+	virtual shptr<generic_state> initialize() {
+		return boost::make_shared<lastvar_state>(); 
+	}
+	// Debug info.
+	virtual std::string getsig() {
+		return "lastvar_state";
+	}
+	virtual void print() const {
+		std::cerr<<"lastvar: ";
+		std::cerr<<last<<std::endl;
+	}
+	virtual bool isequal(shptr<generic_state> rhs) const{
+		return (this->last == boost::dynamic_pointer_cast<lastvar_state>(rhs)->last);
+	}
+	virtual bool islessthan(shptr<generic_state> rhs) const{
+		return (this->last == false && boost::dynamic_pointer_cast<lastvar_state>(rhs)->last == true);
+	}
+
+	bool last;
+};
+
 // This is used to maintain the state of timetest. No data structure is needed.
 class time_state : public generic_state{
 public:

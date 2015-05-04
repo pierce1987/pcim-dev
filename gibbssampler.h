@@ -35,13 +35,13 @@ public:
 	void SampleTrajectories(std::vector<ctbn::Trajectory> &traj, std::vector<double> &w,
 					int numsamples, R &rand){	
 		BurnIn(rand);
-		cerr<<"Burn In finished!"<<endl;
-		printtr(cout,tr,3);
+		//cerr<<"Burn In finished!"<<endl;
+		//printtr(cout,tr,2);
 		for (int i=0; i<numsamples; ++i) {
 			traj.push_back(Get());
 			w.push_back(0.0);  // log weight
 			Next(rand);
-			printtr(cout,tr,3);
+			//printtr(cout,tr,2);
 		}
 	}
 
@@ -97,8 +97,7 @@ protected:
 			//cerr<<"content: ";
 			//jointstate[i]->print();
 			//cerr<<endl;
-		}
-		
+		}	
 		vector<double> times;
 		//TODO: use typedef
 		map<js, double, ssumpcomp> timestate; //state table at one time,temp
@@ -125,18 +124,17 @@ protected:
 		//cerr<<"MAPSIZE:"<<timestate.size()<<endl;
 
 		double t0 = 0;//starts[0]-0.001; should not use starts[0] if doing tr insertion
-		double t_previous = 0;
+		double t_start = 0.0; // When divergence starts to happen
+		double t_previous = 0.0;
 		eventtype event;
 		for(;;) { //until the last event
 		
 			timestate.clear();
 			transmap.clear();
 			t0 = getnextevent(t0, event); //event gets the next event label
-			//cerr<<"next event is "<<event<<" at "<<t0<<endl;
-			//if(t0 == -1.0) break;
+			//cerr<<"next event is ("<<event.var<<","<<event.state<<") at "<<t0<<endl;
 			if (t0 == -1.0) { // for ending time
-				cerr<<"endtime: "<<endtime<<endl;
-				if (endtime == times.back()) { //tr ends with an event
+				if (times.empty() || endtime == times.back()) { //tr ends with an event
 					break;
 				}
 				T_event++;
@@ -144,11 +142,8 @@ protected:
 				for(auto iter = allstates[T_event-1].begin(); iter!=allstates[T_event-1].end();iter++){
 					jointstate = iter->first;
 					double p_previous = iter->second;
-					//temptr =  ctbn::Trajectory();
-					//temptr.SetUnknown(varid,true);
 					vector<double> rates;
 					p_previous += m->Getlikelihood(varid, event, tr, jointstate, testindexes, own_var_list, t_previous, endtime, rates, *context, allstarts[varid], allends[varid]); //log p
-					cerr<<"p_previous: "<<p_previous<<endl;
 					jointstate1 = jointstate;//jointstate1: the previous state
 					jointstate = jointstate1;
 					m->getnewstates(jointstate, testindexes, eventtype(-1,0), endtime, 0, varid);
@@ -176,6 +171,7 @@ protected:
 		
 			}
 			times.push_back(t0);
+			//cerr<<"t0: "<<t0<<endl;
 			T_event++; //push time (event count) forward
 			bool isvirtual = IsVirtual(t0, event, varid);
 			if(isvirtual){
@@ -183,7 +179,7 @@ protected:
 				//cerr<<"event: "<<event<<"t0:"<<t0<<endl;
 				
 				//for each exsiting state
-				cerr<<"SIZE: "<<allstates[T_event-1].size()<<endl;
+				//cerr<<"SIZE: "<<allstates[T_event-1].size()<<endl;
 			/*for(auto iter = allstates[T_event-1].begin(); iter!=allstates[T_event-1].end();iter++){
 				for(int i = 0; i<iter->first.size(); i++){
 					cerr<<"content: ";
@@ -204,6 +200,16 @@ protected:
 					//cerr<<"p_previous: "<<p_previous<<endl;
 					//cerr<<"actual rate: "<<rate<<endl;
 					vector<double> p_keep = Getkeepprob(rates, t0); //not log prob
+					/*
+					cerr<<"p_keep size: "<<p_keep.size()<<endl;
+					for (double i : p_keep) {
+						cerr<<i<<" ";
+					}
+					cerr<<endl;
+					for (double i : rates) {
+						cerr<<i<<" ";
+					}
+					cerr<<endl;*/
 					//double p_keep = Getkeepprob(m->getrate_test(event, t0, testindexes), t0);
 					//cerr<<"p_keep: "<<log(p_keep)<<endl;
 					jointstate1 = jointstate;//jointstate1: the previous state
@@ -234,7 +240,7 @@ protected:
 					jointstate = jointstate1;
 					m->getnewstates(jointstate, testindexes, eventtype(-1,0), t0, 0, varid);
 					auto it = timestate.find(jointstate); 
-					double p_sum = accumulate(p_keep.begin(), p_keep.end(), 0);
+					double p_sum = accumulate(p_keep.begin(), p_keep.end(), 0.0);
 					if(it != timestate.end())
 						it->second = log_add(it->second, (p_previous + log(1 - p_sum)));
 					else
@@ -251,17 +257,18 @@ protected:
 						transmap.insert(pair<js, vector<pair<js, pair<double,int>>>>(jointstate, tempvec));		
 					}
 
-				}	
+				}
 			}
 			else{//evidence
+				
 				for(auto iter = allstates[T_event-1].begin(); iter!=allstates[T_event-1].end();iter++){
 					jointstate = iter->first;
-/*				for(int i = 0; i<jointstate.size(); i++){
-					cerr<<"content!!!!!!: ";
-					jointstate[i]->print();
-					cerr<<endl;
+				for(int i = 0; i<jointstate.size(); i++){
+					//cerr<<"content!!!!!!: ";
+					//jointstate[i]->print();
+					//cerr<<endl;
 				}
-*/
+
 					jointstate1 = jointstate;
 					double p_previous = iter->second;
 
@@ -270,7 +277,7 @@ protected:
 					vector<double> rates;
 					//cerr<<"previous1: "<<p_previous<<endl;
 					p_previous += m->Getlikelihood(varid, event, tr, jointstate, testindexes, own_var_list, t_previous, t0, rates, *context, allstarts[varid], allends[varid]);
-					//cerr<<"previous2: "<<p_previous<<endl;
+					//cerr<<"previou2206056386s2: "<<p_previous<<endl;
 					p_previous += log(rates[event.state]);//evidence needs this
 					//cerr<<"previous3: "<<p_previous<<endl;
 
@@ -278,19 +285,36 @@ protected:
 			 		m->getnewstates(jointstate, testindexes, event, t0, 0, varid);
 
 					auto it = timestate.find(jointstate); 
-					if(it != timestate.end())
-						it->second = log_add(it->second, p_previous);
-					else
-						timestate.insert(pair<js, double>(jointstate, p_previous));	
+					if(it != timestate.end()) {
+						if (t0 <= t_start) {
 
+						} else {
+							it->second = log_add(it->second, p_previous);
+						}
+					}
+					else {
+						if (t0 <= t_start) {
+							timestate.insert(pair<js, double>(jointstate, 0));
+						} else {
+							timestate.insert(pair<js, double>(jointstate, p_previous));
+						}		
+					}
 					auto transit = transmap.find(jointstate); 
 					if(transit != transmap.end()) {
-						(transit->second).push_back(pair<js, pair<double,int>>(jointstate1, make_pair(p_previous,-1)));
+						if (t0 <= t_start) {
+
+						} else {				
+							(transit->second).push_back(pair<js, pair<double,int>>(jointstate1, make_pair(p_previous,-1)));
+						}
 					}
 						
 					else{
 						vector<pair<js, pair<double,int>>> tempvec;
-						tempvec.push_back(pair<js, pair<double,int>>(jointstate1, make_pair(p_previous,-1)));
+						if (t0 <= t_start) {
+							tempvec.push_back(pair<js, pair<double,int>>(jointstate1, make_pair(0,-1)));
+						} else {
+							tempvec.push_back(pair<js, pair<double,int>>(jointstate1, make_pair(p_previous,-1)));
+						}
 						transmap.insert(pair<js, vector<pair<js, pair<double,int>>>>(jointstate, tempvec));		
 					}	
 					
@@ -300,11 +324,10 @@ protected:
 			allstates.push_back(timestate);
 			alltrans.push_back(transmap);
 			t_previous = t0;
-
 		}//end of forward pass
 
-/*
-		for(int i=0; i<allstates.size(); i++){
+
+/*		for(int i=0; i<allstates.size(); i++){
 			cerr<<"states at time instance"<<i<<endl;
 			for(auto iter = allstates[i].begin(); iter!=allstates[i].end();iter++){
 				for(int i = 0; i<iter->first.size(); i++){
@@ -317,8 +340,8 @@ protected:
 				//cerr<<"with P log: "<<log(Prob)<<endl<<endl;
 			}
 		}
-		
-		for(int i=0; i<alltrans.size(); i++){
+*/		
+/*		for(int i=0; i<alltrans.size(); i++){
 			cerr<<"transition: states at time "<<i<<endl;
 			for(auto iter = alltrans[i].begin(); iter!=alltrans[i].end();iter++){
 				for (auto it2 = iter->second.begin(); it2 != iter->second.end(); it2++){
@@ -395,6 +418,7 @@ protected:
 	for (;T_event >= 0; T_event--) {
 		p = log(unifdist(rand));
 		int keep = GetPreviousState(alltrans[T_event], jointstate, p);	
+		//cerr<<"keep: "<<keep<<endl;
 		//cerr<<"time: "<<times[T_event]<<endl;
 		if(keep == -2) {
 			assert(1==0);
@@ -426,13 +450,12 @@ protected:
 		varcontext.AddVar(var, context->Cardinality(var));
 		//get omega intervals (info in auxstarts, auxends, and auxrates)
 		GetAuxRates(var, context->Cardinality(var));
-		cerr<<"auxrates:"<<endl;
-		for(int i = 0; i<auxstarts.size(); i++)
-		{
-			cerr<<auxrates[i]<<" in ( "<<auxstarts[i]<<","<<auxends[i]<<")"<<endl;
-		}
+		//cerr<<"auxrates:"<<endl;
+		//for(int i = 0; i<auxstarts.size(); i++)
+		//{
+		//	cerr<<auxrates[i]<<" in ( "<<auxstarts[i]<<","<<auxends[i]<<")"<<endl;
+		//}
 		oldtr = tr;//use oldtr to maintain the previous sample
-
 		std::exponential_distribution<> expdist(1.0);
 		std::uniform_real_distribution<> unifdist(0.0,1.0);
 		std::normal_distribution<> normdist(0.0,1.0);		
@@ -442,11 +465,10 @@ protected:
 			double lastt=t;
 			while((t = m->geteventaux(tr,lastt,expdist(rand),unifdist(rand),normdist(rand),var,T,varcontext,auxstarts,auxends,auxrates)) < T) {				
 				oldtr.AddTransition(var, t, 0);	
-				cerr<<"sampled: "<<"var: "<<var<<" t: "<<t<<endl;
+				//cerr<<"sampled: "<<"var: "<<var<<" t: "<<t<<endl;
 				lastt = t; //proceed no matter event kept or not
 			}
 		}
-
 		Clearcurrentvar(var);//clear events in unobserved areas for *tr*. Use thinning result to add events
 		Thinning(var, rand); //thinning oldtr, in backward pass add events to tr.
 	}

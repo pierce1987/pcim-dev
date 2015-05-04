@@ -3,7 +3,9 @@ TARGET   = "${DIR}/test"
 
 CC       = /usr/csshare/pkgs/gcc-4.8.1/bin/g++
 WFLAGS   = -W -Wall -Wextra -Werror -Wfatal-errors
-CFLAGS   = -c -O2 -ansi -std=c++0x -I/home/rlair/include
+#CFLAGS   = -c -O2 -ansi -std=c++0x -I/home/rlair/include
+CFLAGS   = -c -ggdb -gdwarf-2 -ansi -std=c++0x -I/home/rlair/include
+#LDFLAGS  = -L/home/rlair/lib
 LDFLAGS  = -L/home/rlair/lib
 LDLIBS	= -lboost_serialization
 

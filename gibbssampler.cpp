@@ -108,6 +108,12 @@ GibbsAuxSampler::GibbsAuxSampler(const pcim *model, const ctbn::Trajectory *evid
 	}*/
 	testindexes.resize(m->counttest());		
 	model->Makeindex(testindexes,0);
+	//cerr<<"indexes: "<<endl;
+	//for (int a : testindexes) {
+	//	cerr<<a<<" ";
+	//}
+	//cerr<<endl;
+
 	// Get starts and ends
 	for (int i = 0; i < own_var_list.size(); ++i) {
 		int varid = own_var_list[i];
@@ -146,7 +152,7 @@ void GibbsAuxSampler::SetTrajectory(const ctbn::Trajectory *evidence) {
 
 //now only set init_traj as the cleaned up evid (nothing between -2 and -3)
 void GibbsAuxSampler::SampleInitialTrajectory() const {
-	tr = ctbn::Trajectory();
+	tr = ctbn::Trajectory(context->VarList().size());
 	tr.SetBeginTime(evid->TimeBegin());
 	tr.SetEndTime(evid->TimeEnd());
 	decltype(evid->GetVarTraj(0).begin()) it, tmpend;
@@ -169,6 +175,15 @@ void GibbsAuxSampler::SampleInitialTrajectory() const {
 		}
 	}
 	//should sample in the [-2,-3] intervals, but not necessary - to do
+	//for ising model
+	/*tr.AddTransition(0, 0.3, 0);
+	tr.AddTransition(1, 0.4, 0);
+	tr.AddTransition(2, 0.5, 0);
+
+	tr.AddTransition(5, 0.6, 1);
+	tr.AddTransition(6, 0.7, 1);
+	tr.AddTransition(7, 0.8, 1);
+	tr.AddTransition(8, 0.9, 1);*/
 }
 
 void GibbsAuxSampler::Clearcurrentvar(int varid) const{
@@ -213,7 +228,7 @@ void GibbsAuxSampler::GetAuxRates(int varid, int card) const{
 		double T = allends[varid][i];
 		double lastt=t;
 		double until;
-		double r;
+		double r = 0;
 
 		while((t = m->getauxrates(tr,lastt,card,until,r,varid)) < T) {
 			if(until >= T){ until = T; break;}

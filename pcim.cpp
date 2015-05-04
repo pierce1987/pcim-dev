@@ -8,6 +8,7 @@
 using namespace std;
 
 double getactualrate(double r, double t, double until, vector<double> &auxstarts, vector<double> &auxends, vector<double> &auxrates){
+
 	for(int i = 0; i<auxstarts.size(); i++){
 		if(t>=auxstarts[i] && t<auxends[i]){
 			//if(until>auxstarts[i] && until<=auxends[i] || until == numeric_limits<double>::infinity())
@@ -15,7 +16,10 @@ double getactualrate(double r, double t, double until, vector<double> &auxstarts
 		}
 
 	}
+	return 0.0;
 	cout<<"problem!!!!!!!!!!!"<<endl;
+	
+	
 }
 
 void GetObservedIntervals(double t_previous, double t0, const vector<double> &starts, const vector<double> &ends, vector<double> &obstarts, vector<double> &obends) {
@@ -24,24 +28,49 @@ void GetObservedIntervals(double t_previous, double t0, const vector<double> &st
 		obends.push_back(t0);
 		return;
 	}
+	vector<double> rs;//removed start
+	vector<double> re;
+	
 	for (int i = 0; i < starts.size(); ++i) {
+		//cerr<<"starts: "<<starts[i]<<endl;
+		//cerr<<"ends: "<<ends[i]<<endl;
 		if (ends[i] <= t_previous || starts[i] >= t0) {
 			continue;
 		}
 		if (starts[i] <= t_previous && ends[i] >= t0) {
-			obstarts.push_back(t_previous);
-			obends.push_back(t0);
+			return;
 		} else if (starts[i] <= t_previous && ends[i] <= t0) {
-			obstarts.push_back(t_previous);
-			obends.push_back(ends[i]);
+			rs.push_back(t_previous);
+			re.push_back(ends[i]);
 		} else if (starts[i] >= t_previous && ends[i] <= t0) {
-			obstarts.push_back(starts[i]);
-			obends.push_back(ends[i]);
+			rs.push_back(starts[i]);
+			re.push_back(ends[i]);
 		} else if (starts[i] >= t_previous && ends[i] >= t0) {
-			obstarts.push_back(starts[i]);
-			obends.push_back(t0);
+			rs.push_back(starts[i]);
+			re.push_back(t0);
 		}
 	}
+	
+	if (rs.size() == 0) {
+		obstarts.push_back(t_previous);
+		obends.push_back(t0);
+		return;
+	}
+
+	if (t_previous < rs[0]) {
+		obstarts.push_back(t_previous);
+		obends.push_back(rs[0]);
+	}
+
+	for (int i = 0; i < rs.size()-1; ++i) {
+		obstarts.push_back(re[i]);
+		obends.push_back(rs[i+1]);
+	}
+
+	if (t0 > re.back()) {
+		obstarts.push_back(re.back());
+		obends.push_back(t0);
+	}	
 	return;
 }
 
@@ -64,6 +93,12 @@ pcim::pcim(const vector<ctbn::Trajectory> &data,
 	build(d,s,tests,score(s,params),params);
 }
 
+void pcim::learnNewModel(const std::vector<ctbn::Trajectory> &data, const std::vector<shptr<pcimtest>> &tests, const pcimparams &params, const ctbn::Context &contexts) {
+	const vector<vartrajrange> &d = torange(data, contexts);
+	ss s = suffstats(d);
+	globalm = data.size();
+	build(d,s,tests,score(s,params),params);
+}
 
 pcim::ss pcim::suffstats(const std::vector<vartrajrange> &data) {
 	ss ret;
@@ -77,7 +112,7 @@ pcim::ss pcim::suffstats(const std::vector<vartrajrange> &data) {
 		auto i1 = vtr.upper_bound(x.range.second);
 		//ret.n += distance(i0,i1);		
 		for(auto i = i0;i!=i1;++i) {
-			if(i->second == x.event.state)
+			if(i->second == x.event.state && i->second != -2 && i->second != -3)
 				ret.n++;
 		}
 	}
@@ -409,6 +444,44 @@ void pcim::getnewstates(std::vector<shptr<generic_state> > &jointstate, const st
 	jointstate[index] = test->stateupdate(jointstate[index], event, t0, varid);
 	ttree -> getnewstates(jointstate, testindexes, event, t0, index+1, varid);
 	ftree -> getnewstates(jointstate, testindexes, event, t0, index+testindexes[index], varid);	
+}
+
+double pcim::calcDataLikelihood(const vector<ctbn::Trajectory> &data, const ctbn::Context &contexts) {
+	double ret = 0;
+	const vector<vartrajrange> &d = torange(data, contexts);
+	ret = passDownforLL(d);
+	return ret;
+}
+
+void pcim::updateparams(const std::vector<ctbn::Trajectory> &data, const ctbn::Context &contexts, const pcimparams &params) {
+	const vector<vartrajrange> &d = torange(data, contexts);
+	passDownforParam(d, params);
+	return;	
+}
+
+void pcim::passDownforParam(const vector<vartrajrange> &data, const pcimparams &params) {
+	if (!test) { //reached leaf
+		ss stats = suffstats(data);
+		rate = (params.a + stats.n)/(params.b + stats.t);
+		return;
+	}
+	vector<vartrajrange> td1,td2;
+	for (auto &x:data) test->chop(x,td1,td2);
+	ttree->passDownforParam(td1,params);
+	ftree->passDownforParam(td2,params);
+	return;
+}
+
+double pcim::passDownforLL(const vector<vartrajrange> &data) {
+	if (!test) { //reached leaf
+		double r = rate;
+		ss stats = suffstats(data);
+		cerr<<"rate: "<<r<<" n: "<<stats.n<<" t: "<<stats.t<<endl;
+		return stats.n*log(r) - r*stats.t;
+	}
+	vector<vartrajrange> td1,td2;
+	for (auto &x:data) test->chop(x,td1,td2);
+	return ttree->passDownforLL(td1) + ftree->passDownforLL(td2);
 }
 
 void pcim::print(ostream &os) const {

@@ -199,7 +199,7 @@ public:
 		if (auxv != varid && (auxv != -1 || event.var != varid)) {
 			return eval(tr, event, t, until);
 		}
-		// use state
+		// use state. when is about sampled var : auxv!=-1&&auxv==varid  OR auxv==-1&&varid==event.var
 		until = std::numeric_limits<double>::infinity();
 		int lstate = boost::dynamic_pointer_cast<last_state>(state)->laststate;	
 		return lstate == s;	
@@ -216,6 +216,144 @@ private:
 	void serialize(Ar &ar, const unsigned int ver) {
 		ar & BOOST_SERIALIZATION_BASE_OBJECT_NVP(pcimtest);
 		ar & BOOST_SERIALIZATION_NVP(v) & BOOST_SERIALIZATION_NVP(s) & BOOST_SERIALIZATION_NVP(auxv);
+	}
+};
+
+// last event of variable testvar?
+class lastvartest : public pcimtest {
+public:
+	lastvartest(int testvar, const std::set<int> &othervars) : v(testvar) {
+		auxv = -1;
+		for(const auto &vv : othervars)
+			ov.AddVar(vv,2); // cardinality doesn't matter
+	}
+	virtual ~lastvartest() {}
+	virtual void print(std::ostream &os) const {
+		os << v << " more recent than";
+		for(auto vv : ov.Vars()) os << ' ' << vv;
+	}
+	virtual void print(std::ostream &os, const datainfo &info) const {
+		os << info.dvarname(v) << " more recent than";
+		for(auto vv : ov.Vars()) os << ' ' << info.dvarname(vv);
+	}
+	virtual int getauxv() const {
+		return -1;
+	}
+
+	virtual void chop(const vartrajrange &in,
+			std::vector<vartrajrange> &outtrue,
+			std::vector<vartrajrange> &outfalse) const {
+		const ctbn::Trajectory &tr = *(in.tr);
+		const int testv = v==-1 ? in.event.var : v;
+		ctbn::Context allv(ov);
+		allv.AddVar(testv,2);
+		auto i = tr.Begin(allv,in.range.first,in.range.second);
+		auto irev = tr.End(allv,tr.TimeBegin(),in.range.first);
+		bool state = eval(tr,eventtype{testv},in.range.first);
+		double t0 = in.range.first;
+		while(!i.Done()) {
+			int chvar = i.NextVar();
+			++i;
+			if (i.Done()) break;
+			if ((chvar==testv)!=state) {
+				if (state) outfalse.emplace_back(in,t0,i.Time());
+				else outtrue.emplace_back(in,t0,i.Time());
+				t0 = i.Time();
+				state = !state;
+			}
+		}
+		if (i.Time()>t0) {
+			if (state) outfalse.emplace_back(in,t0,i.Time());
+			else outtrue.emplace_back(in,t0,i.Time());
+		}
+	}
+
+private:
+	static double prevtime(const ctbn::VarTrajectory &vtr, double t, double mint) {
+		auto lb = vtr.lower_bound(t);
+		if (lb==vtr.begin()) return mint;
+		--lb;
+		return lb->first;
+	}
+
+	static double nexttime(const ctbn::VarTrajectory &vtr, double t) {
+		auto ub = vtr.upper_bound(t);
+		if (ub==vtr.end()) return std::numeric_limits<double>::infinity();
+		return ub->first;
+	}
+public:
+	virtual bool eval(const ctbn::Trajectory &tr, eventtype event, double t) const {
+		/*printtr(std::cout,tr,2);
+		const int testv = v==-1 ? event.var : v;
+		ctbn::Context allv(ov);
+		allv.AddVar(testv,2);
+		std::cerr<<"what is testv? "<<testv<<std::endl;
+		std::cerr<<"time: " <<t<<std::endl;
+		auto irev = tr.End(allv,tr.TimeBegin(),t);
+		std::cerr<<"what is this?"<<irev.TestDec(ov)<<std::endl;
+		return irev.TestDec(ov)==0; // is previous event not from ov?
+*/
+		const int testv = (v==-1 ? event.var : v);
+		double vtime = prevtime(tr.GetVarTraj(testv),t,tr.TimeBegin());
+		for(auto vv : ov.Vars()) {
+			if (vv==testv) continue;
+			double ovt = prevtime(tr.GetVarTraj(vv),t,tr.TimeBegin());
+			if (ovt>vtime) return false;
+		}
+		return true;
+	}
+
+	virtual bool eval(const ctbn::Trajectory &tr, eventtype event, double t, double &until) const {
+		/*const int testv = (v==-1 ? event.var : v);
+		double vtime = nexttime(tr.GetVarTraj(testv),t);
+		//std::cerr<<"vtime:"<<vtime<<std::endl;
+		for(auto vv : ov.Vars()) {
+			
+			//std::cerr<<"vv:"<<vv<<std::endl;
+			if (vv==testv) continue;
+			double ovt = nexttime(tr.GetVarTraj(vv),t);
+			//std::cerr<<"ovt:"<<ovt<<std::endl;
+			if (ovt<vtime) {
+				vtime = ovt;
+			}
+		}
+		until = vtime;*/
+		until = std::numeric_limits<double>::infinity();
+		return eval(tr,event,t);
+	}
+
+	virtual generic_state* getteststate() {return &teststate;}
+
+	virtual shptr<generic_state> stateupdate(shptr<generic_state> &state, eventtype event, double t0, int varid) const{
+		if (event.var == -1) {
+			return state;
+		}
+
+		const int testv = v==-1 ? event.var : v;
+		bool lstate = boost::dynamic_pointer_cast<lastvar_state>(state)->last;	
+		if (event.var==testv && !lstate)
+			return boost::make_shared<lastvar_state>(true);
+		else if (event.var!=testv && lstate)
+			return boost::make_shared<lastvar_state>(false);
+		else return state;
+	}
+
+	virtual bool neweval(const ctbn::Trajectory &tr, shptr<generic_state> &state, int varid, eventtype event, double t, double &until) const {
+		until = std::numeric_limits<double>::infinity();
+		return boost::dynamic_pointer_cast<lastvar_state>(state)->last;	
+	}
+
+protected:
+	int v;
+	ctbn::Context ov;
+	int auxv;
+	lastvar_state teststate;
+private:
+	friend class boost::serialization::access;
+	template<typename Ar>
+	void serialize(Ar &ar, const unsigned int ver) {
+		ar & BOOST_SERIALIZATION_BASE_OBJECT_NVP(pcimtest);
+		ar & BOOST_SERIALIZATION_NVP(v) & BOOST_SERIALIZATION_NVP(ov);
 	}
 };
 
@@ -255,7 +393,7 @@ public:
 		double myt1 = breakup(t1,temp);
 		double startbase,endbase;
 		double start = breakup(in.range.first,startbase);
-		double end = breakup(in.range.second,endbase);	// This assumes that the queue has been updated correctly, for example, for eventcounttest, the queue should only contain times of the queried event. Also, if auxv = -1, the queue should only have events of the sampled var. 
+		double end = breakup(in.range.second,endbase);
 		double tmin,tmax;
 		std::tie(tmin,tmax) = std::minmax(myt0,myt1);
 		std::vector<vartrajrange> &out0 = myt0<myt1 ? outfalse : outfalse;
@@ -937,6 +1075,18 @@ public:
 		return ret;
 	}
 
+	template<typename R>
+	void resetparams(const pcimparams &params, R &rand) {
+		if (!test) {
+			std::gamma_distribution<double> dis(params.a,1.0/params.b);
+			rate = dis(rand);
+			return;
+		}
+		ttree->resetparams(params, rand);
+		ftree->resetparams(params, rand);
+		return;
+	}
+
 	// returns relevant leaves in ret and sum as return value
 	double getrate(const ctbn::Trajectory &tr, double t, double &until, std::map<eventtype, const pcim *, eventcomp> &ret, const ctbn::Context &contexts) const;
 	double getauxrates(const ctbn::Trajectory &tr, double &t, int card, double &until, double &r, double varid) const;
@@ -950,6 +1100,10 @@ public:
 	int Makeindex(std::vector<int> &indexes, int i) const;
 	void getnewstates(std::vector<shptr<generic_state> > &jointstate, const std::vector<int> &testindexes, eventtype event, double t0, int index, int varid) const;
 	int counttest() const;
+	double calcDataLikelihood(const std::vector<ctbn::Trajectory> &data, const ctbn::Context &contexts);
+	void updateparams(const std::vector<ctbn::Trajectory> &data, const ctbn::Context &contexts, const pcimparams &params); 
+	void learnNewModel(const std::vector<ctbn::Trajectory> &data, const std::vector<shptr<pcimtest>> &tests,
+		const pcimparams &params, const ctbn::Context &contexts);
 	void print(std::ostream &os) const;
 	void print(std::ostream &os, const datainfo &info) const;
 	void todot(std::ostream &os, const datainfo &info) const;
@@ -993,6 +1147,8 @@ private:
 	double getratevar_state(const ctbn::Trajectory &tr, std::vector<shptr<generic_state> > &jointstate, int varid, eventtype testevent, double t, double &until, const std::vector<int> &testindexes, int index) const;
 	double getratevaraux(const ctbn::Trajectory &tr, int varid, int state, double t, double &until) const;
 
+	double passDownforLL(const std::vector<vartrajrange> &data);
+	void passDownforParam(const std::vector<vartrajrange> &data, const pcimparams &params);
 
 	void printhelp(std::ostream &os, int lvl, const datainfo *info=nullptr) const;
 	void todothelp(std::ostream &os, int par, bool istrue, int &nn, const datainfo &info) const;
